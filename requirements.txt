@@ -1,0 +1,59 @@
+# ============================================================================
+# Iteration 1: Urdu ASR/STT System - Dependencies
+# ============================================================================
+# 
+# This file contains all dependencies needed for the first iteration of the
+# Urdu Speech-to-Text system for real estate voice AI.
+#
+# Installation:
+#   pip install -r requirements.txt
+#
+# For GPU support (optional, faster inference):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu118
+# ============================================================================
+
+# Core Machine Learning / ASR
+torch>=2.0.0                # PyTorch for model inference
+transformers>=4.30.0        # HuggingFace Transformers (Whisper models)
+accelerate>=0.20.0          # Optimized model loading
+sentencepiece>=0.1.99       # Tokenization for some models
+
+# Audio Processing
+pyaudio>=0.2.13             # Microphone input and audio I/O
+sounddevice>=0.4.6          # Alternative audio backend
+librosa>=0.10.0             # Audio file loading and processing
+scipy>=1.10.0               # Signal processing utilities
+pydub>=0.25.1               # Audio format conversion
+
+# Voice Activity Detection
+# (Silero VAD will be loaded via torch.hub)
+
+# Sentence Segmentation
+pysbd>=0.3.4                # Sentence boundary detection
+
+# Data Processing & Analysis
+numpy>=1.24.0               # Numerical computing
+pandas>=2.0.0               # Data manipulation for lexicon/datasets
+
+# Evaluation & Metrics
+jiwer>=3.0.0                # Word Error Rate (WER) calculation
+scikit-learn>=1.2.0         # Additional metrics and analysis
+
+# Utilities
+python-dotenv>=1.0.0        # Environment variable management
+tqdm>=4.65.0                # Progress bars for evaluations
+
+# Optional: Telephony Simulation
+# (Add these if needed for 8kHz narrowband testing)
+# audioread>=3.0.0          # Audio codec support
+# soundfile>=0.12.0         # Audio file I/O
+
+# Development & Documentation (optional)
+# jupyter>=1.0.0            # Jupyter notebooks for exploration
+# matplotlib>=3.7.0         # Visualization for error analysis
+# seaborn>=0.12.0           # Statistical plotting
+
+# Note: 
+# - On Windows, you may need to install PyAudio using: pip install pipwin && pipwin install pyaudio
+# - On Linux, install portaudio first: sudo apt-get install portaudio19-dev
+# - On macOS: brew install portaudio
