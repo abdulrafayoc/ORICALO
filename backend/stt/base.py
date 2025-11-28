@@ -41,7 +41,7 @@ class BaseEar:
                 "yes",
                 "yeah",
                 "hmm",
-            ]  # you because whisper says "you" in silence
+            ] 
         self.silence_seconds = silence_seconds
         self.not_interrupt_words = not_interrupt_words
         self.vad = VoiceActivityDetection()

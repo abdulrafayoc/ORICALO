@@ -1,0 +1,3 @@
+term,category,roman_urdu,notes
+# TODO: Expand this file to >=500 domain-specific terms.
+# Start by merging and extending data from seed_lexicon.csv.

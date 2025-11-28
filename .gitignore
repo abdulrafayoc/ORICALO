@@ -1,0 +1,31 @@
+# Root gitignore for ORICALO monorepo
+
+# Python venvs
+.venv/
+venv/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / frontend
+frontend/node_modules/
+.next/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Models and large artifacts
+models/
+
+# Evaluation outputs
+backend/evaluation/results/
+
+# Audio datasets that should not be versioned
+data/test_audio/gold_set/
+data/test_audio/telephony_8k/

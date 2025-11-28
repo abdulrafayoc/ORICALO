@@ -69,9 +69,43 @@ class Ear_hf(BaseEar):
         self.remove_hallucinations = remove_hallucinations
         
         # Cache model components for streaming
-        self.feature_extractor = self.pipe.feature_extractor
         self.tokenizer = self.pipe.tokenizer
         self.model = self.pipe.model
+        
+        # Internal state for iterative processing
+        self._audio_buffer = []
+        self._chunk_count = 0
+        self._last_transcription = ""
+
+    def process_iterative(self, audio_chunk: bytes) -> Optional[str]:
+        """
+        Process a single chunk of audio and return transcription if ready.
+        Maintains internal state (buffer).
+        
+        Args:
+            audio_chunk: Raw audio bytes (int16).
+            
+        Returns:
+            Transcription string if a new update is available, else None.
+        """
+        self._audio_buffer.append(audio_chunk)
+        self._chunk_count += 1
+        
+        # Process every N chunks
+        if self._chunk_count % self.chunk_size == 0:
+            transcription = self._process_audio_buffer(self._audio_buffer)
+            
+            if transcription and transcription != self._last_transcription:
+                self._last_transcription = transcription
+                return transcription
+                
+        return None
+        
+    def reset_stream(self):
+        """Reset the internal stream state."""
+        self._audio_buffer = []
+        self._chunk_count = 0
+        self._last_transcription = ""
 
     def transcribe(self, audio: np.ndarray) -> str:
         """Transcribe a complete audio array.

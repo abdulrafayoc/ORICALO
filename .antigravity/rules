@@ -1,0 +1,51 @@
+# ORICALO AI Agent Rules (.antigravity)
+
+## Project Overview
+ORICALO is an Urdu-first AI voice agent for real estate. It uses a monorepo
+structure with Next.js (frontend) and FastAPI (backend).
+
+## Tech Stack
+- **Frontend**: Next.js (App Router), TypeScript, Tailwind CSS, Lucide React.
+- **Backend**: Python 3.10+, FastAPI, WebSockets, PyTorch, HuggingFace Transformers.
+- **AI/ML**: Whisper (STT), Llama/Mistral (LLM), FAISS (RAG).
+
+## Directory Structure
+- `frontend/`: Next.js application.
+- `backend/`: Python AI server.
+  - `app/`: FastAPI core.
+  - `stt/`: Speech-to-Text module.
+  - `llm/`: LLM & Dialogue Policy.
+  - `rag/`: Retrieval-Augmented Generation.
+  - `tts/`: Text-to-Speech.
+- `training/`: Model fine-tuning scripts.
+- `models/`: Local model artifacts (ignored by Git).
+
+## Coding Standards
+
+### Python (Backend)
+- Follow **PEP 8**.
+- Use type hints (`typing.List`, `typing.Optional`, etc.).
+- Use `pydantic` for data validation.
+- Docstrings for public functions/classes.
+- Prefer `async def` for I/O-bound operations.
+
+### TypeScript/React (Frontend)
+- Use functional components.
+- Use `interface` for props.
+- Use Tailwind CSS for styling.
+- Use `lucide-react` for icons.
+- Avoid `any` where possible.
+
+## Agentic Behaviors
+- **Plan First**: For non-trivial changes, draft an implementation plan.
+- **Atomic Changes**: Keep edits focused; avoid mixing unrelated refactors.
+- **Verify**: Ensure code builds/tests run after changes.
+- **Urdu Support**: Keep Urdu text and RTL considerations in mind where relevant.
+
+## Repo Hygiene & Safety
+- Do **not** commit `.venv/`, `venv/`, `frontend/node_modules/`, `models/`,
+  or large audio datasets under `data/test_audio/gold_set/` or
+  `data/test_audio/telephony_8k/`.
+- Use `.env` files for secrets; never hardcode API keys.
+- Respect iteration boundaries: keep Iteration 1 cleanup, Iteration 2 features,
+  and later work in separate branches/PRs.
