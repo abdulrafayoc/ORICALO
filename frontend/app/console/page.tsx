@@ -7,6 +7,8 @@ export default function ConsolePage() {
     const [isRecording, setIsRecording] = useState(false);
     const [transcript, setTranscript] = useState<string[]>([]);
     const [latency, setLatency] = useState<number>(0);
+    const [agentReply, setAgentReply] = useState<string | null>(null);
+    const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
     const socketRef = useRef<WebSocket | null>(null);
 
     const startRecording = async () => {
@@ -48,6 +50,33 @@ export default function ConsolePage() {
                     // Calculate latency (rough estimate)
                     setLatency(Math.floor(Math.random() * 50) + 100);
                     setTranscript((prev) => [...prev, `AI: ${response.text}`]);
+
+                    if (response.is_final) {
+                        const finalText: string = response.text ?? "";
+                        const newHistory = [...history, { role: "user", text: finalText }];
+                        setHistory(newHistory);
+
+                        (async () => {
+                            try {
+                                const res = await fetch("http://localhost:8000/dialogue/step", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        history: newHistory,
+                                        latest_transcript: finalText,
+                                        metadata: { latency }
+                                    })
+                                });
+                                const data = await res.json();
+                                if (data?.reply) {
+                                    setAgentReply(data.reply);
+                                    setHistory((prev) => [...prev, { role: "agent", text: data.reply }]);
+                                }
+                            } catch (e) {
+                                setAgentReply("[Error] Failed to fetch agent reply.");
+                            }
+                        })();
+                    }
                 }
             };
 
@@ -142,6 +171,14 @@ export default function ConsolePage() {
                                 Waiting for input stream...
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Agent Reply Panel */}
+                <div className="lg:col-span-2 bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+                    <h2 className="text-sm font-semibold text-neutral-400 mb-3 uppercase tracking-wider">Agent Reply</h2>
+                    <div className="text-neutral-200 whitespace-pre-wrap break-words min-h-10">
+                        {agentReply ?? "No reply yet."}
                     </div>
                 </div>
             </main>

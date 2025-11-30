@@ -1,0 +1,9 @@
+README.md
+setup.py
+ORICALO___Real_Estate_Voice_Agent.egg-info/PKG-INFO
+ORICALO___Real_Estate_Voice_Agent.egg-info/SOURCES.txt
+ORICALO___Real_Estate_Voice_Agent.egg-info/dependency_links.txt
+ORICALO___Real_Estate_Voice_Agent.egg-info/entry_points.txt
+ORICALO___Real_Estate_Voice_Agent.egg-info/not-zip-safe
+ORICALO___Real_Estate_Voice_Agent.egg-info/requires.txt
+ORICALO___Real_Estate_Voice_Agent.egg-info/top_level.txt

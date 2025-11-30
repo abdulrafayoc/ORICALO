@@ -1,0 +1,3 @@
+[console_scripts]
+urdu-stt-demo = demos.quick_demo:main
+urdu-stt-eval = evaluation.baseline_evaluation:main
