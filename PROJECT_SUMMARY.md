@@ -36,7 +36,6 @@ iteration-1/                              # Root directory
 │   ├── lexicon/
 │   │   ├── seed_lexicon.csv              # ✅ 100+ initial domain terms
 │   │   ├── lexicon.csv                   # 🎯 Target: 500+ terms
-│   │   └── roman_urdu_mapping.json       # Normalization rules
 │   │
 │   ├── synthetic_dialogs/
 │   │   ├── seed_dialogs.jsonl            # ✅ 15 initial dialogs
@@ -131,7 +130,6 @@ iteration-1/                              # Root directory
   - Pakistani locations (cities, areas, housing societies)
   - Property types and features
   - Financial terms (lakh, crore)
-  - Roman Urdu variants
 
 - ✅ **Seed Synthetic Dialogs** (15 conversations)
   - Inbound inquiries
@@ -143,7 +141,6 @@ iteration-1/                              # Root directory
 - ✅ **Consent Forms**
   - Urdu version
   - English version
-  - Roman Urdu version
   - Ethics compliance checklist
 
 ### 5. **Complete Documentation** 📚
@@ -373,7 +370,7 @@ This extraction aligns with your Iteration 1 plan:
 
 4. **Real-World Datasets**
    - Pakistani real estate domain
-   - Urdu + Roman Urdu + English
+   - Urdu
    - 100+ domain terms
    - Realistic conversations
 

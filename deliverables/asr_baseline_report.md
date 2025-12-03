@@ -32,7 +32,7 @@ Summarize metrics across models:
 ## 5. Error Analysis
 
 - Substitution / Insertion / Deletion rates.
-- Common error patterns (OOV terms, Roman Urdu issues, code-switching).
+- Common error patterns (OOV terms, code-switching).
 - Examples of typical mistakes and their impact.
 
 ## 6. Discussion

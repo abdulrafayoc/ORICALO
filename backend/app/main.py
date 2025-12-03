@@ -17,10 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api.endpoints import stt, dialogue
+from app.api.endpoints import stt, dialogue, valuation
 
 app.include_router(stt.router)
 app.include_router(dialogue.router)
+app.include_router(valuation.router)
 
 @app.get("/")
 async def root():

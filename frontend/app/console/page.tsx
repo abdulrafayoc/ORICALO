@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Mic, Square, Activity, Terminal } from "lucide-react";
+import PriceWidget from "@/components/PriceWidget";
+import RagWidget from "@/components/RagWidget";
 
 export default function ConsolePage() {
     const [isRecording, setIsRecording] = useState(false);
@@ -9,6 +11,8 @@ export default function ConsolePage() {
     const [latency, setLatency] = useState<number>(0);
     const [agentReply, setAgentReply] = useState<string | null>(null);
     const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
+    const [activeWidget, setActiveWidget] = useState<'price' | 'rag' | null>(null);
+    const [widgetData, setWidgetData] = useState<any>(null);
     const socketRef = useRef<WebSocket | null>(null);
 
     const startRecording = async () => {
@@ -72,6 +76,19 @@ export default function ConsolePage() {
                                     setAgentReply(data.reply);
                                     setHistory((prev) => [...prev, { role: "agent", text: data.reply }]);
                                 }
+
+                                // Handle Actions
+                                if (data?.actions && Array.isArray(data.actions)) {
+                                    data.actions.forEach((action: any) => {
+                                        if (action.type === "show_price") {
+                                            setActiveWidget("price");
+                                            setWidgetData(action.payload);
+                                        } else if (action.type === "show_listings") {
+                                            setActiveWidget("rag");
+                                            setWidgetData(action.payload);
+                                        }
+                                    });
+                                }
                             } catch (e) {
                                 setAgentReply("[Error] Failed to fetch agent reply.");
                             }
@@ -126,8 +143,8 @@ export default function ConsolePage() {
                         <button
                             onClick={isRecording ? stopRecording : startRecording}
                             className={`w-full py-4 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${isRecording
-                                    ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50"
-                                    : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/50"
+                                ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50"
+                                : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/50"
                                 }`}
                         >
                             {isRecording ? (
@@ -174,11 +191,29 @@ export default function ConsolePage() {
                     </div>
                 </div>
 
-                {/* Agent Reply Panel */}
-                <div className="lg:col-span-2 bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
-                    <h2 className="text-sm font-semibold text-neutral-400 mb-3 uppercase tracking-wider">Agent Reply</h2>
-                    <div className="text-neutral-200 whitespace-pre-wrap break-words min-h-10">
-                        {agentReply ?? "No reply yet."}
+                {/* Agent Reply Panel & Visuals */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Visual Widget Area */}
+                    {activeWidget && widgetData && (
+                        <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                            {activeWidget === 'price' && (
+                                <PriceWidget
+                                    minPrice={widgetData.min_price}
+                                    maxPrice={widgetData.max_price}
+                                    confidence={widgetData.confidence}
+                                />
+                            )}
+                            {activeWidget === 'rag' && (
+                                <RagWidget listings={widgetData.listings} />
+                            )}
+                        </div>
+                    )}
+
+                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
+                        <h2 className="text-sm font-semibold text-neutral-400 mb-3 uppercase tracking-wider">Agent Reply</h2>
+                        <div className="text-neutral-200 whitespace-pre-wrap break-words min-h-10">
+                            {agentReply ?? "No reply yet."}
+                        </div>
                     </div>
                 </div>
             </main>

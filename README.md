@@ -85,7 +85,7 @@ oricalo/
 │   └── package.json                   # Frontend dependencies
 │
 ├── data/                              # 📂 Datasets & Artifacts
-│   ├── lexicon/                       # Domain lexicon + roman_urdu_mapping
+│   ├── lexicon/                       # Domain lexicon
 │   ├── synthetic_dialogs/             # Seed + full dialog bank
 │   ├── test_audio/                    # Gold set + telephony_8k (local only)
 │   └── consent/                       # Consent scripts & ethics checklist
@@ -108,7 +108,6 @@ oricalo/
 ### 2. **Urdu Language Optimization**
 - Pre-trained Whisper models (tiny, small, base)
 - Support for code-switching (Urdu + English)
-- Roman Urdu normalization
 - Domain-specific lexicon biasing
 
 ### 3. **Telephony Simulation**
@@ -201,7 +200,6 @@ python evaluation/error_analysis.py \
 - ≥500 domain terms in lexicon
 - ≥200 synthetic dialogs with annotations
 - 20-30 gold utterances recorded
-- Roman Urdu normalization mapping
 
 ✅ **Documentation**
 - ASR baseline report (PDF)

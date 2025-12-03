@@ -32,3 +32,13 @@ pandas>=2.0.0
 jiwer>=3.0.0
 scikit-learn>=1.2.0
 pysbd>=0.3.4
+
+# RAG & Retrieval
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+beautifulsoup4>=4.12.0
+httpx>=0.24.0
+
+# AVM / Price Prediction
+xgboost>=1.7.0
+joblib>=1.3.0

@@ -27,7 +27,7 @@ This folder contains all final deliverables for Iteration 1 of the FYP project.
   - Locations (cities, areas, housing societies)
   - Property types (house, plot, flat, etc.)
   - Real estate terminology
-  - Roman Urdu variants
+  - Urdu variants
   - Financial terms (lakh, crore, etc.)
 
 ### 3. **Synthetic Dialog Bank** ✅

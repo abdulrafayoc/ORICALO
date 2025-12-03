@@ -7,6 +7,10 @@ import json
 import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+try:
+    from rag.retriever import query_rag as _query_rag
+except Exception:
+    _query_rag = None
 
 
 router = APIRouter(tags=["iteration2"])
@@ -93,7 +97,7 @@ def _build_messages(payload: "DialogueStepRequest") -> List[Dict[str, str]]:
         "آپ کا مقصد ہے: کلائنٹ کی ضرورت سمجھنا، واضح سوالات کرنا، اور مناسب رہنمائی دینا. "
         "جواب مختصر، مؤثر، اور شائستہ اردو/رومن اردو میں دیں۔\n\n"
         "ہمیشہ درج ذیل JSON اسکیمہ کے مطابق آؤٹ پٹ دیں:\n"
-        "{\n  \"reply\": \"<agent message in Urdu/Roman Urdu>\",\n  \"actions\": [\n    { \"type\": \"<action_type>\", \"payload\": { ... } }\n  ]\n}\n"
+        "{\n  \"reply\": \"<agent message in Urdu>\",\n  \"actions\": [\n    { \"type\": \"<action_type>\", \"payload\": { ... } }\n  ]\n}\n"
         "اگر کوئی ایکشن درکار نہیں تو actions خالی لسٹ رکھیں۔"
     )
 
@@ -172,23 +176,84 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
     cleaned = raw.strip()
     if not cleaned:
         cleaned = payload.latest_transcript
-    return DialogueStepResponse(reply=cleaned, actions=[])
+
+    # STUB: Inject actions based on keywords for testing
+    transcript_lower = payload.latest_transcript.lower()
+    actions: List[DialogueAction] = []
+    
+    if "price" in transcript_lower or "value" in transcript_lower or "worth" in transcript_lower:
+        actions.append(DialogueAction(
+            type="show_price",
+            payload={
+                "min_price": 55000000,
+                "max_price": 60000000,
+                "confidence": 0.85,
+                "currency": "PKR"
+            }
+        ))
+        if "price" in cleaned.lower():
+            cleaned += " (Showing price widget)"
+
+    if "search" in transcript_lower or "listing" in transcript_lower or "house" in transcript_lower:
+        actions.append(DialogueAction(
+            type="show_listings",
+            payload={
+                "listings": [
+                    {
+                        "id": "1",
+                        "title": "1 Kanal Luxury House",
+                        "location": "DHA Phase 6, Lahore",
+                        "price": "6.5 Crore",
+                        "image": "https://images.zameen.com/1/1234567-1-400.jpg" 
+                    },
+                    {
+                        "id": "2",
+                        "title": "10 Marla Modern Villa",
+                        "location": "Bahria Town, Lahore",
+                        "price": "3.2 Crore",
+                        "image": ""
+                    },
+                    {
+                        "id": "3",
+                        "title": "Brand New 5 Marla",
+                        "location": "Johar Town, Lahore",
+                        "price": "1.8 Crore",
+                        "image": ""
+                    }
+                ]
+            }
+        ))
+        if "listing" in cleaned.lower():
+            cleaned += " (Showing listings widget)"
+
+    return DialogueStepResponse(reply=cleaned, actions=actions)
 
 
 @router.post("/rag/query", response_model=RagQueryResponse)
 async def rag_query(payload: RagQueryRequest) -> RagQueryResponse:
-    """Iteration 2 stub endpoint for RAG.
+    """Query the property knowledge base using hybrid semantic retrieval."""
+    if _query_rag is None:
+        # Fallback to stub if retriever not available
+        dummy_doc = RagDocument(
+            id="stub-doc-1",
+            score=1.0,
+            text="This is a placeholder document for query: " + payload.query,
+            metadata={"note": "Retriever not available"},
+        )
+        return RagQueryResponse(query=payload.query, results=[dummy_doc])
 
-    Returns a single dummy document. Later this will query a FAISS index
-    built over a real estate knowledge base.
-    """
-    dummy_doc = RagDocument(
-        id="stub-doc-1",
-        score=1.0,
-        text="This is a placeholder document for query: " + payload.query,
-        metadata={"note": "Replace with real RAG results in Iteration 2"},
-    )
-    return RagQueryResponse(query=payload.query, results=[dummy_doc])
+    results = _query_rag(payload.query, top_k=payload.top_k, filters=payload.filters or {})
+    docs: List[RagDocument] = []
+    for r in results:
+        docs.append(
+            RagDocument(
+                id=str(r.get("id", "")),
+                score=float(r.get("score", 0.0)),
+                text=str(r.get("text", "")),
+                metadata=r.get("metadata") or {},
+            )
+        )
+    return RagQueryResponse(query=payload.query, results=docs)
 
 
 @router.post("/price/predict", response_model=PricePredictionResponse)
