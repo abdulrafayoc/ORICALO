@@ -1,4 +1,0 @@
-// JSONL file: one dialog per line.
-// Each line should be a JSON object with fields like:
-// {"dialog_id": "...", "turns": [{"speaker": "caller"|"agent", "text": "...", "entities": {...}, "intent": "..."}, ...]}
-// TODO: Populate with >=200 dialogs based on seed_dialogs.jsonl as a template.

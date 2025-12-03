@@ -29,3 +29,7 @@ backend/evaluation/results/
 # Audio datasets that should not be versioned
 data/test_audio/gold_set/
 data/test_audio/telephony_8k/
+
+
+.env
+/data

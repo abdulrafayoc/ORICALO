@@ -1,7 +1,0 @@
-{
-  "_comment": "Roman Urdu normalization rules. Map common romanized forms to normalized Urdu or canonical forms.",
-  "examples": {
-    "lahore": "لاہور",
-    "karachi": "کراچی"
-  }
-}
