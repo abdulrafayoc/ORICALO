@@ -1,82 +1,132 @@
 """
 HuggingFace Local LLM for ORICALO Urdu Real Estate Voice Agent.
-Uses transformers library with local/quantized models.
+Uses transformers library or llama-cpp-python for local/quantized models.
 """
 
 import os
-from typing import Generator, List, Dict, Optional
+from typing import Generator, List, Dict, Optional, Any
 import json
 import re
+from threading import Thread
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Backend availability
 try:
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    TORCH_AVAILABLE = True
+    from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+    TRANSFORMERS_AVAILABLE = True
 except ImportError:
-    TORCH_AVAILABLE = False
+    TRANSFORMERS_AVAILABLE = False
     torch = None
 
+try:
+    from llama_cpp import Llama
+    LLAMA_CPP_AVAILABLE = True
+except ImportError:
+    LLAMA_CPP_AVAILABLE = False
 
-# Default model - compact enough for local inference
-DEFAULT_MODEL_ID = os.getenv("LLM_MODEL_ID", "microsoft/Phi-3-mini-4k-instruct")
+
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+
+# Choose backend: "transformers" or "llama"
+# Determine model type
+# Priority: 
+# 1. LLM_MODEL_TYPE env var
+# 2. Inference from LLM_MODEL_ID (if contains 'gguf' or 'lughaat')
+# 3. LLM_BACKEND env var (only if 'llama' or 'transformers')
+# 4. Default to 'transformers'
+
+_env_backend = os.getenv("LLM_BACKEND", "").lower()
+_env_model_type = os.getenv("LLM_MODEL_TYPE", "").lower()
+_env_model_id = os.getenv("LLM_MODEL_ID", "mradermacher/Lughaat-1.0-8B-Instruct-GGUF")
+
+if _env_model_type:
+    DEFAULT_MODEL_TYPE = _env_model_type
+elif "gguf" in _env_model_id.lower() or "lughaat" in _env_model_id.lower():
+    DEFAULT_MODEL_TYPE = "llama"
+elif _env_backend == "llama":
+    DEFAULT_MODEL_TYPE = "llama"
+else:
+    DEFAULT_MODEL_TYPE = "transformers"
+
+DEFAULT_MODEL_ID = _env_model_id
 
 # System prompt for Urdu real estate agent persona
-SYSTEM_PROMPT = """You are a polite and expert real estate agent helping clients in Pakistan.
+SYSTEM_PROMPT = """
+آپ ایک شائستہ اور ماہر رئیل اسٹیٹ ایجنٹ ہیں جو پاکستان کے شہری علاقوں میں پراپرٹی خریدنے اور بیچنے میں مدد کرتے ہیں۔
 
-Your duties:
-1. Understand client needs (budget, location, property type)
-2. Suggest suitable properties based on context provided
-3. Provide information about prices and areas
-4. Answer questions helpfully in Urdu/Roman Urdu
+آپ کے فرائض:
+1. کلائنٹ کی ضروریات سمجھنا (بجٹ، مقام، پراپرٹی کی قسم)
+2. مناسب پراپرٹیز تجویز کرنا
+3. قیمتوں اور علاقوں کے بارے میں معلومات دینا
+4. سوالات کا جواب دینا
 
-Rules:
-- Respond in concise Urdu/Roman Urdu (English mixing is acceptable)
-- Keep responses brief (2-3 sentences max) for voice conversation
-- Maintain a polite, professional tone
-- Ask clarifying questions if needed
-- Never make up property details - use only provided context
+قواعد:
+- جواب مختصر اور مؤثر اردو میں دیں
+- شائستہ لہجہ برقرار رکھیں
+- اگر ضرورت ہو تو واضح سوالات پوچھیں
+- کبھی غلط معلومات نہ دیں
 """
 
 
 class HuggingFaceChatbot:
-    """HuggingFace local model chatbot for real estate conversations."""
+    """Unified local model chatbot supporting Transformers and Llama.cpp."""
     
     def __init__(
         self,
         model_id: str = DEFAULT_MODEL_ID,
+        model_type: str = DEFAULT_MODEL_TYPE,
         device: Optional[str] = None,
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_new_tokens: int = 256,
+        # Transformers specific
         load_in_8bit: bool = False,
         load_in_4bit: bool = True,
+        # Llama specific
+        n_ctx: int = 2048,
+        n_gpu_layers: int = -1, # -1 for all layers on GPU
     ):
-        if not TORCH_AVAILABLE:
-            raise RuntimeError("torch/transformers not installed. Run: pip install torch transformers accelerate")
-        
         self.model_id = model_id
+        self.model_type = model_type.lower()
         self.system_prompt = system_prompt or SYSTEM_PROMPT
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
+        self.device = device
         
-        # Determine device
-        if device:
-            self.device = device
-        elif torch.cuda.is_available():
-            self.device = "cuda"
+        # Conversation history
+        self.messages: List[Dict[str, str]] = []
+        
+        # Backend implementations
+        self.transformers_model = None
+        self.transformers_tokenizer = None
+        self.llama_model = None
+        
+        if self.model_type == "transformers":
+            self._init_transformers(load_in_8bit, load_in_4bit)
+        elif self.model_type == "llama":
+            self._init_llama(n_ctx, n_gpu_layers)
         else:
-            self.device = "cpu"
+            raise ValueError(f"Unknown model_type: {model_type}")
+
+    def _init_transformers(self, load_in_8bit, load_in_4bit):
+        if not TRANSFORMERS_AVAILABLE:
+            raise RuntimeError("transformers not installed. Run: pip install transformers torch accelerate")
         
-        # Load tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            model_id,
-            trust_remote_code=True,
-        )
+        print(f"[LLM] Loading Transformers model: {self.model_id}")
         
-        # Configure quantization
+        device_map = "auto"
+        if not self.device and torch.cuda.is_available():
+             self.device = "cuda"
+        elif not self.device:
+             self.device = "cpu"
+             device_map = None
+
+        # Tweak for quantization
         quantization_config = None
         if self.device == "cuda":
             try:
@@ -90,115 +140,218 @@ class HuggingFaceChatbot:
                 elif load_in_8bit:
                     quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             except ImportError:
-                quantization_config = None
+                print("[LLM] bitsandbytes not found, quantization disabled.")
         
-        # Load model
         load_kwargs = {
             "trust_remote_code": True,
-            "device_map": "auto" if self.device == "cuda" else None,
+            "device_map": device_map,
         }
-        
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
         elif self.device == "cuda":
             load_kwargs["torch_dtype"] = torch.float16
-        
-        self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+
+        self.transformers_tokenizer = AutoTokenizer.from_pretrained(self.model_id, trust_remote_code=True)
+        self.transformers_model = AutoModelForCausalLM.from_pretrained(self.model_id, **load_kwargs)
         
         if self.device == "cpu":
-            self.model = self.model.to(self.device)
+            self.transformers_model = self.transformers_model.to("cpu")
+            
+        print("[LLM] Transformers model loaded.")
+
+    def _init_llama(self, n_ctx, n_gpu_layers):
+        if not LLAMA_CPP_AVAILABLE:
+            raise RuntimeError("llama-cpp-python not installed. Run: pip install llama-cpp-python")
         
-        # Conversation history
-        self.messages: List[Dict[str, str]] = []
+        print(f"[LLM] Loading Llama.cpp model: {self.model_id}")
+        
+        # If model_id looks like a repo ID (contains '/'), use from_pretrained
+        if "/" in self.model_id and not os.path.exists(self.model_id):
+            repo_id = self.model_id
+            # Allow user to specify filename via env var, or fallback
+            specified_filename = os.getenv("LLM_MODEL_FILENAME")
+            
+            filenames_to_try = [specified_filename] if specified_filename else [
+                "*Q4_K_M.gguf", 
+                "*Q5_K_M.gguf",
+                "*Q8_0.gguf",
+                "*.gguf"
+            ]
+            
+            model_loaded = False
+            last_error = None
+            
+            for fname in filenames_to_try:
+                try:
+                    print(f"[LLM] Attempting to load '{fname}' from '{repo_id}'...")
+                    self.llama_model = Llama.from_pretrained(
+                        repo_id=repo_id,
+                        filename=fname,
+                        n_ctx=n_ctx,
+                        n_gpu_layers=n_gpu_layers,
+                        chat_format="llama-3",
+                        verbose=True
+                    )
+                    model_loaded = True
+                    print(f"[LLM] Successfully loaded '{fname}'")
+                    break
+                except Exception as e:
+                    print(f"[LLM] Failed option '{fname}': {e}")
+                    last_error = e
+            
+            if not model_loaded:
+                raise RuntimeError(
+                    f"Could not load Llama model from repo '{repo_id}'. "
+                    f"Last error: {last_error}. "
+                    "Check if the Repo ID is correct and contains GGUF files."
+                )
+
+        else:
+            # Local file path
+            if not os.path.exists(self.model_id):
+                raise FileNotFoundError(f"GGUF file not found: {self.model_id}")
+            
+            self.llama_model = Llama(
+                model_path=self.model_id,
+                n_ctx=n_ctx,
+                n_gpu_layers=n_gpu_layers,
+                chat_format="llama-3",
+                verbose=True
+            )
+            
+        print("[LLM] Llama model loaded.")
     
-    def _build_prompt(self, user_input: str, context: Optional[str] = None) -> str:
-        """Build prompt with system message and history."""
+    def _build_messages(self, user_input: str, context: Optional[str] = None) -> List[Dict[str, str]]:
         messages = [{"role": "system", "content": self.system_prompt}]
-        messages.extend(self.messages)
+        for m in self.messages:
+            role = "user" if m["role"] == "user" else "assistant" # map 'agent' to 'assistant'
+            messages.append({"role": role, "content": m["content"]})
         
         user_content = user_input
         if context:
             user_content = f"Context:\n{context}\n\nUser: {user_input}"
         
         messages.append({"role": "user", "content": user_content})
-        
-        # Try to use chat template
-        try:
-            prompt = self.tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True,
-            )
-        except Exception:
-            # Fallback to simple format
-            prompt = "\n".join([f"[{m['role']}] {m['content']}" for m in messages])
-            prompt += "\n[assistant] "
-        
-        return prompt
-    
+        return messages
+
     def generate_response(self, user_input: str, context: Optional[str] = None) -> str:
-        """Generate a response to user input."""
-        prompt = self._build_prompt(user_input, context)
-        
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-        
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id,
-            )
-        
-        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
-        # Extract only the new generated text
-        if prompt in response:
-            response = response[len(prompt):].strip()
-        
-        # Update history
-        self.messages.append({"role": "user", "content": user_input})
-        self.messages.append({"role": "assistant", "content": response})
-        
-        return response
-    
+        """Blocking generation."""
+        # Accumulate stream
+        chunks = []
+        for chunk in self.generate_response_stream(user_input, context):
+            chunks.append(chunk)
+        return "".join(chunks).strip()
+
     def generate_response_stream(self, user_input: str, context: Optional[str] = None) -> Generator[str, None, None]:
-        """Stream response (simplified - yields complete response)."""
-        # HuggingFace streaming requires TextIteratorStreamer
-        # For simplicity, we yield the full response
-        response = self.generate_response(user_input, context)
-        yield response
-    
+        if self.model_type == "transformers":
+            yield from self._stream_transformers(user_input, context)
+        elif self.model_type == "llama":
+            yield from self._stream_llama(user_input, context)
+            
+    def _stream_transformers(self, user_input: str, context: Optional[str] = None):
+        messages = self._build_messages(user_input, context)
+        
+        # Apply template
+        try:
+             # Check for chat template availability
+            if self.transformers_tokenizer.chat_template:
+                 prompt = self.transformers_tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+            else:
+                 raise ValueError("No chat template")
+        except:
+             # Fallback
+            prompt = ""
+            for m in messages:
+                prompt += f"<{m['role']}>\n{m['content']}\n"
+            prompt += "<assistant>\n"
+
+        inputs = self.transformers_tokenizer(prompt, return_tensors="pt").to(self.transformers_model.device)
+        
+        streamer = TextIteratorStreamer(
+            self.transformers_tokenizer, 
+            skip_prompt=True, 
+            skip_special_tokens=True,
+            timeout=10.0
+        )
+        
+        generation_kwargs = dict(
+            **inputs,
+            streamer=streamer,
+            max_new_tokens=self.max_new_tokens,
+            temperature=self.temperature,
+            do_sample=True,
+            pad_token_id=self.transformers_tokenizer.eos_token_id,
+        )
+        
+        thread = Thread(target=self.transformers_model.generate, kwargs=generation_kwargs)
+        thread.start()
+        
+        accumulated_text = ""
+        for new_text in streamer:
+            accumulated_text += new_text
+            yield new_text
+            
+        self._update_history(user_input, accumulated_text)
+
+    def _stream_llama(self, user_input: str, context: Optional[str] = None):
+        messages = self._build_messages(user_input, context)
+        
+        # Llama-cpp-python handles chat templates internally usually, or we can use the messages API
+        # It has a create_chat_completion method compatible with OpenAI API
+        
+        response_iter = self.llama_model.create_chat_completion(
+            messages=messages,
+            max_tokens=self.max_new_tokens,
+            temperature=self.temperature,
+            stream=True
+        )
+        
+        accumulated_text = ""
+        for chunk in response_iter:
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                text_chunk = delta["content"]
+                accumulated_text += text_chunk
+                yield text_chunk
+                
+        self._update_history(user_input, accumulated_text)
+
+    def _update_history(self, user_input: str, response: str):
+        self.messages.append({"role": "user", "content": user_input})
+        self.messages.append({"role": "assistant", "content": response.strip()})
+
     def reset_conversation(self):
-        """Reset conversation history."""
         self.messages = []
     
     def set_history(self, history: List[Dict[str, str]]):
-        """Set conversation history from list of {role, text} dicts."""
         self.messages = []
         for turn in history:
             role = turn.get("role", "user").lower()
-            if role == "agent":
-                role = "assistant"
-            self.messages.append({
-                "role": role,
-                "content": turn.get("text", "")
-            })
+            if role == "agent": role = "assistant"
+            self.messages.append({"role": role, "content": turn.get("text", "")})
 
 
 def create_huggingface_chatbot(**kwargs) -> HuggingFaceChatbot:
-    """Factory function to create a HuggingFace chatbot."""
+    """Factory function."""
     return HuggingFaceChatbot(**kwargs)
 
 
 if __name__ == "__main__":
-    # Quick test
+    # Test block
     print("Testing HuggingFace chatbot...")
-    print(f"Loading model: {DEFAULT_MODEL_ID}")
     try:
-        bot = HuggingFaceChatbot()
-        response = bot.generate_response("mujhe DHA Lahore mein 10 marla ghar chahiye")
-        print(f"Response: {response}")
+        # Default loads whatever is configured in DEFAULT_MODEL_TYPE/ID
+        bot = HuggingFaceChatbot() 
+        print(f"Loaded backend: {bot.model_type}")
+        
+        print("Streamed response:")
+        full_resp = ""
+        for chunk in bot.generate_response_stream("mujhe DHA Lahore mein 10 marla ghar chahiye"):
+            print(chunk, end="", flush=True)
+            full_resp += chunk
+        print("\nDone.")
     except Exception as e:
         print(f"Error: {e}")
+

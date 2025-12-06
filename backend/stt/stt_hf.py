@@ -34,7 +34,9 @@ class HallucinationFilter:
     }
     
     # Language-specific hallucinations for Urdu
-    URDU_HALLUCINATIONS = {"ملکی", "شکریہ" ,"ملک", "ایم" ,"افیرے", "ہمارے", "افغانی سے", "بیت" ,"کچھ" ,"ب" ,"بھی" ,"بیٹھلے" }
+    URDU_HALLUCINATIONS = {"ملکی", "شکریہ" ,"ملک", "ایم" ,"افیرے", "ہمارے", 
+                "افغانی سے", "بیت" ,"کچھ" ,"ب" ,"بھی" ,"بیٹھلے",
+                "علی" }
     
     @staticmethod
     def filter(text: str, audio_duration: float = 0.0) -> str:
@@ -248,8 +250,64 @@ class StreamingWhisperTranscriber(BaseEar):
             logger.error(f"Buffer processing error: {e}")
             return ""
 
+class ONNXStreamingWhisperTranscriber(StreamingWhisperTranscriber):
+    """
+    ONNX-accelerated version of StreamingWhisperTranscriber.
+    Requires 'optimum' and 'onnxruntime' packages.
+    """
+    def __init__(self, model_id: str, device: str = "cpu", **kwargs):
+        # We need to bypass the parent init's pipeline loading to use optimum
+        # But we want to keep the rest of the init logic.
+        # So we call super().__init__ but passing a dummy model_id effectively?
+        # No, better to duplicate init logic or refactor.
+        # Refactoring approach:
+        
+        try:
+            from optimum.pipelines import pipeline as optimum_pipeline
+        except ImportError:
+            raise ImportError("Please install 'optimum' and 'onnxruntime' to use ONNX models.")
+
+        # Initialize base components manually first to avoid loading standard pipeline
+        self.silence_seconds = kwargs.get("silence_seconds", 2.0)
+        BaseEar.__init__(
+            self,
+            silence_seconds=self.silence_seconds,
+            listener=kwargs.get("listener"),
+            listen_interruptions=kwargs.get("listen_interruptions", True),
+            logger=kwargs.get("logger"),
+            stream=True,
+        )
+        
+        # Load ONNX pipeline
+        logger.info(f"Loading ONNX model: {model_id} on {device}")
+        
+        # accelerator="ort" enables ONNX Runtime
+        self.pipe = optimum_pipeline(
+            "automatic-speech-recognition",
+            model=model_id,
+            accelerator="ort",
+            device=device
+        )
+        self.device = device
+        self.generate_kwargs = kwargs.get("generate_kwargs", {})
+        
+        # VAD
+        self.vad = OptimizedVAD(threshold=0.5)
+        
+        # Streaming state
+        self.current_turn_audio = []
+        self.speech_started = False
+        self.last_speech_time = None
+        self.endpointing_ms = kwargs.get("endpointing_ms", 800)
+        self.audio_without_speech_count = 0 
+        
+        # Cache model components
+        self.tokenizer = self.pipe.tokenizer
+        self.model = self.pipe.model
+
 # Compatibility alias
 Ear_hf = StreamingWhisperTranscriber
+Ear_onnx = ONNXStreamingWhisperTranscriber
 
 if __name__ == "__main__":
     # Test block
