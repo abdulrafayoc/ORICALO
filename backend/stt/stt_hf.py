@@ -34,7 +34,7 @@ class HallucinationFilter:
     }
     
     # Language-specific hallucinations for Urdu
-    URDU_HALLUCINATIONS = {"ملکی", "شکریہ"}
+    URDU_HALLUCINATIONS = {"ملکی", "شکریہ" ,"ملک", "ایم" ,"افیرے", "ہمارے", "افغانی سے", "بیت" ,"کچھ" ,"ب" ,"بھی" ,"بیٹھلے" }
     
     @staticmethod
     def filter(text: str, audio_duration: float = 0.0) -> str:
