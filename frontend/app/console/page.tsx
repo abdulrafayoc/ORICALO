@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Mic, Square, Activity, Terminal, Loader2, CheckCircle2, AlertCircle, Radio } from "lucide-react";
 import PriceWidget from "@/components/PriceWidget";
 import RagWidget from "@/components/RagWidget";
+import WaveformVisualizer from "@/components/WaveformVisualizer";
 
 type ModelStatus = "disconnected" | "connected" | "loading" | "ready" | "error" | "warning";
 
@@ -20,8 +21,9 @@ export default function ConsolePage() {
     const socketRef = useRef<WebSocket | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
 
-    // Status indicator component
+    // ... (StatusIndicator remains same)
     const StatusIndicator = () => {
         const statusConfig = {
             disconnected: { color: "bg-neutral-500", icon: Radio, pulse: false },
@@ -70,6 +72,12 @@ export default function ConsolePage() {
                 const audioContext = new AudioContext({ sampleRate: 16000 });
                 const source = audioContext.createMediaStreamSource(stream);
 
+                // Setup Analyser for Visualization
+                const analyserNode = audioContext.createAnalyser();
+                analyserNode.fftSize = 2048;
+                source.connect(analyserNode);
+                setAnalyser(analyserNode);
+
                 // ScriptProcessor to capture raw audio samples
                 const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
@@ -106,6 +114,8 @@ export default function ConsolePage() {
                 (streamRef.current as any)._audioContext = audioContext;
                 (streamRef.current as any)._processor = processor;
             };
+            // ... (rest of startRecording logic handled by unchanged lines below, need to merge carefully)
+
 
             ws.onmessage = (event) => {
                 const response = JSON.parse(event.data);
@@ -288,10 +298,8 @@ export default function ConsolePage() {
                         </div>
                     </div>
 
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 h-64 flex items-center justify-center">
-                        <span className="text-neutral-600 text-sm">
-                            [ WAVEFORM VISUALIZATION PLACEHOLDER ]
-                        </span>
+                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 h-64 flex items-center justify-center relative overflow-hidden">
+                        <WaveformVisualizer analyser={analyser} isRecording={isRecording} />
                     </div>
                 </div>
 

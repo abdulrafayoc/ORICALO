@@ -57,7 +57,7 @@ class GeminiChatbot:
     
     def __init__(
         self,
-        model_name: str = "gemini-2.0-flash-exp",
+        model_name: str = "gemini-2.0-flash",
         api_key: Optional[str] = None,
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,

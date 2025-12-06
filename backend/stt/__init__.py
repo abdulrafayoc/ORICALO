@@ -10,12 +10,12 @@ Core ASR functionality for Urdu language recognition with:
 """
 
 from .stt_hf import Ear_hf
-from .vad import VoiceActivityDetection
+from .vad import OptimizedVAD
 from .utils import record_user, record_user_stream, record_interruption
 
 __all__ = [
     "Ear_hf",
-    "VoiceActivityDetection",
+    "OptimizedVAD",
     "record_user",
     "record_user_stream",
     "record_interruption",

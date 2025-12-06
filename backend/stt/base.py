@@ -1,5 +1,5 @@
 from .utils import record_user, record_interruption, record_user_stream
-from .vad import VoiceActivityDetection
+from .vad import OptimizedVAD as VoiceActivityDetection
 import re
 import numpy as np
 from threading import Thread
