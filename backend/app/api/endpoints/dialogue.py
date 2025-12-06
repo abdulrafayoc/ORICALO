@@ -1,20 +1,48 @@
-from typing import List, Optional, Dict, Any
+"""
+Dialogue API endpoints for ORICALO Voice Agent.
+Handles LLM-based conversation, RAG retrieval, and price prediction.
+"""
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
 import os
 import json
 import re
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Import RAG retriever
 try:
     from rag.retriever import query_rag as _query_rag
 except Exception:
     _query_rag = None
 
+# Import LLM factory
+try:
+    from llm import get_chatbot
+    LLM_AVAILABLE = True
+except Exception:
+    get_chatbot = None
+    LLM_AVAILABLE = False
+
+# Import price prediction
+try:
+    from app.api.endpoints.valuation import _get_model as get_price_model, _to_sqft
+    PRICE_MODEL_AVAILABLE = True
+except Exception:
+    get_price_model = None
+    PRICE_MODEL_AVAILABLE = False
+
 
 router = APIRouter(tags=["iteration2"])
 
+
+# ============================================================================
+# Request/Response Models
+# ============================================================================
 
 class DialogueTurn(BaseModel):
     role: str  # "user" or "agent"
@@ -72,200 +100,227 @@ class PricePredictionResponse(BaseModel):
     confidence: float
 
 
-_LLM_MODEL_ID = os.getenv("LLM_MODEL_ID", "mistralai/Mistral-7B-Instruct-v0.2")
-_LLM_MAX_NEW_TOKENS = int(os.getenv("LLM_MAX_NEW_TOKENS", "256"))
-_LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
-_llm_model = None
-_llm_tokenizer = None
+# ============================================================================
+# LLM Instance (Lazy Loading)
+# ============================================================================
+
+_llm_instance = None
 
 
 def _get_llm():
-    global _llm_model, _llm_tokenizer
-    if _llm_model is None or _llm_tokenizer is None:
-        _llm_tokenizer = AutoTokenizer.from_pretrained(_LLM_MODEL_ID)
-        _llm_model = AutoModelForCausalLM.from_pretrained(
-            _LLM_MODEL_ID,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto",
-        )
-    return _llm_model, _llm_tokenizer
-
-
-def _build_messages(payload: "DialogueStepRequest") -> List[Dict[str, str]]:
-    system_prompt = (
-        "آپ ایک شائستہ اور ماہر رئیل اسٹیٹ ایجنٹ ہیں جو پاکستان کے شہری سیاق میں بات کرتے ہیں. "
-        "آپ کا مقصد ہے: کلائنٹ کی ضرورت سمجھنا، واضح سوالات کرنا، اور مناسب رہنمائی دینا. "
-        "جواب مختصر، مؤثر، اور شائستہ اردو/رومن اردو میں دیں۔\n\n"
-        "ہمیشہ درج ذیل JSON اسکیمہ کے مطابق آؤٹ پٹ دیں:\n"
-        "{\n  \"reply\": \"<agent message in Urdu>\",\n  \"actions\": [\n    { \"type\": \"<action_type>\", \"payload\": { ... } }\n  ]\n}\n"
-        "اگر کوئی ایکشن درکار نہیں تو actions خالی لسٹ رکھیں۔"
-    )
-
-    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
-
-    for turn in payload.history:
-        role = "user" if turn.role.lower() == "user" else "assistant"
-        messages.append({"role": role, "content": turn.text})
-
-    user_prefix = "تازہ ٹرانسکرپٹ:\n" + payload.latest_transcript
-    if payload.metadata:
+    """Get or create LLM instance."""
+    global _llm_instance
+    if _llm_instance is None and LLM_AVAILABLE:
         try:
-            meta_str = json.dumps(payload.metadata, ensure_ascii=False)
-        except Exception:
-            meta_str = str(payload.metadata)
-        user_prefix += "\n\nمیٹا ڈیٹا:" + "\n" + meta_str
-    messages.append({"role": "user", "content": user_prefix})
-    return messages
+            _llm_instance = get_chatbot()
+        except Exception as e:
+            print(f"[LLM] Failed to initialize: {e}")
+            return None
+    return _llm_instance
 
 
-def _generate_response(messages: List[Dict[str, str]]) -> str:
-    model, tokenizer = _get_llm()
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def _detect_intent(text: str) -> Dict[str, bool]:
+    """Detect user intent from transcript."""
+    text_lower = text.lower()
+    
+    # Keywords for different intents
+    price_keywords = ["price", "kitni", "kitne", "cost", "value", "worth", "qeemat", "قیمت"]
+    search_keywords = ["search", "find", "show", "dikhao", "ghar", "house", "flat", "plot", "property", "listing"]
+    location_keywords = ["dha", "bahria", "johar", "gulberg", "model town", "cantt", "f-", "e-", "i-", "g-"]
+    
+    return {
+        "wants_price": any(kw in text_lower for kw in price_keywords),
+        "wants_search": any(kw in text_lower for kw in search_keywords),
+        "has_location": any(kw in text_lower for kw in location_keywords),
+    }
+
+
+def _extract_location(text: str) -> Optional[str]:
+    """Extract location from text."""
+    text_lower = text.lower()
+    locations = [
+        "dha phase 1", "dha phase 2", "dha phase 3", "dha phase 4", "dha phase 5", 
+        "dha phase 6", "dha phase 7", "dha phase 8", "dha", "bahria town",
+        "johar town", "gulberg", "model town", "cantt", "lahore", "karachi", "islamabad"
+    ]
+    for loc in locations:
+        if loc in text_lower:
+            return loc.title()
+    return None
+
+
+def _get_rag_context(query: str, top_k: int = 3) -> str:
+    """Get RAG context for LLM prompt."""
+    if _query_rag is None:
+        return ""
+    
     try:
-        template = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = tokenizer(template, return_tensors="pt").to(model.device)
-    except Exception:
-        history_text = "\n".join([f"[{m['role']}] {m['content']}" for m in messages])
-        inputs = tokenizer(history_text + "\nassistant:", return_tensors="pt").to(model.device)
+        results = _query_rag(query, top_k=top_k)
+        if not results:
+            return ""
+        
+        context_parts = ["Available Properties:"]
+        for i, r in enumerate(results[:top_k], 1):
+            text = r.get("text", "")[:500]  # Limit text length
+            metadata = r.get("metadata", {})
+            price = metadata.get("price", "N/A")
+            location = metadata.get("location", "")
+            context_parts.append(f"{i}. {text[:200]}... (Price: {price}, Location: {location})")
+        
+        return "\n".join(context_parts)
+    except Exception as e:
+        print(f"[RAG] Error: {e}")
+        return ""
 
-    with torch.no_grad():
-        gen = model.generate(
-            **inputs,
-            max_new_tokens=_LLM_MAX_NEW_TOKENS,
-            temperature=_LLM_TEMPERATURE,
-            do_sample=True,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-    out = tokenizer.decode(gen[0], skip_special_tokens=True)
-    return out
+
+def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]:
+    """Get price estimate for location."""
+    # Simple heuristic if model not available
+    base_prices = {
+        "dha": 350,  # lakh per marla
+        "bahria": 180,
+        "johar": 120,
+        "gulberg": 280,
+        "model town": 200,
+        "cantt": 250,
+    }
+    
+    location_lower = location.lower()
+    base = 100  # default
+    for key, val in base_prices.items():
+        if key in location_lower:
+            base = val
+            break
+    
+    total = base * area_marla
+    return {
+        "min_price": int(total * 0.9 * 100000),
+        "max_price": int(total * 1.1 * 100000),
+        "confidence": 0.75,
+        "currency": "PKR"
+    }
 
 
-def _extract_json(text: str) -> Optional[Dict[str, Any]]:
-    match = re.search(r"\{[\s\S]*\}", text)
-    if not match:
-        return None
-    snippet = match.group(0)
-    try:
-        return json.loads(snippet)
-    except Exception:
-        return None
-
+# ============================================================================
+# API Endpoints
+# ============================================================================
 
 @router.post("/dialogue/step", response_model=DialogueStepResponse)
 async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
-    """Iteration 2 stub endpoint.
-
-    For now this returns a placeholder reply echoing the latest transcript.
-    In future iterations this will call an LLM + policy module.
     """
-    messages = _build_messages(payload)
-    raw = _generate_response(messages)
-
-    parsed = _extract_json(raw)
-    if parsed and isinstance(parsed, dict):
-        reply = str(parsed.get("reply", ""))
-        actions_payload = parsed.get("actions", [])
-        actions: List[DialogueAction] = []
-        if isinstance(actions_payload, list):
-            for a in actions_payload:
-                if isinstance(a, dict) and "type" in a:
-                    actions.append(DialogueAction(type=str(a.get("type")), payload=a.get("payload")))
-        if not reply:
-            reply = payload.latest_transcript
-        return DialogueStepResponse(reply=reply, actions=actions)
-
-    cleaned = raw.strip()
-    if not cleaned:
-        cleaned = payload.latest_transcript
-
-    # STUB: Inject actions based on keywords for testing
-    transcript_lower = payload.latest_transcript.lower()
+    Process dialogue step with LLM + RAG.
+    
+    1. Detect user intent from transcript
+    2. If property-related, fetch RAG context
+    3. Generate LLM response with context
+    4. Add actions for price/listing widgets
+    """
+    transcript = payload.latest_transcript
+    intent = _detect_intent(transcript)
     actions: List[DialogueAction] = []
     
-    if "price" in transcript_lower or "value" in transcript_lower or "worth" in transcript_lower:
-        actions.append(DialogueAction(
-            type="show_price",
-            payload={
-                "min_price": 55000000,
-                "max_price": 60000000,
-                "confidence": 0.85,
-                "currency": "PKR"
-            }
-        ))
-        if "price" in cleaned.lower():
-            cleaned += " (Showing price widget)"
-
-    if "search" in transcript_lower or "listing" in transcript_lower or "house" in transcript_lower:
-        actions.append(DialogueAction(
-            type="show_listings",
-            payload={
-                "listings": [
-                    {
-                        "id": "1",
-                        "title": "1 Kanal Luxury House",
-                        "location": "DHA Phase 6, Lahore",
-                        "price": "6.5 Crore",
-                        "image": "https://images.zameen.com/1/1234567-1-400.jpg" 
-                    },
-                    {
-                        "id": "2",
-                        "title": "10 Marla Modern Villa",
-                        "location": "Bahria Town, Lahore",
-                        "price": "3.2 Crore",
+    # Get RAG context if property-related query
+    rag_context = ""
+    if intent["wants_search"] or intent["has_location"]:
+        rag_context = _get_rag_context(transcript)
+        
+        # Add listings action for frontend widget
+        if _query_rag and intent["wants_search"]:
+            results = _query_rag(transcript, top_k=3)
+            if results:
+                listings = []
+                for r in results[:3]:
+                    meta = r.get("metadata", {})
+                    listings.append({
+                        "id": r.get("id", ""),
+                        "title": r.get("text", "")[:100],
+                        "location": meta.get("location", ""),
+                        "price": str(meta.get("price", "N/A")),
                         "image": ""
-                    },
-                    {
-                        "id": "3",
-                        "title": "Brand New 5 Marla",
-                        "location": "Johar Town, Lahore",
-                        "price": "1.8 Crore",
-                        "image": ""
-                    }
-                ]
-            }
-        ))
-        if "listing" in cleaned.lower():
-            cleaned += " (Showing listings widget)"
-
-    return DialogueStepResponse(reply=cleaned, actions=actions)
+                    })
+                actions.append(DialogueAction(type="show_listings", payload={"listings": listings}))
+    
+    # Add price action if price query detected
+    if intent["wants_price"]:
+        location = _extract_location(transcript) or "Lahore"
+        price_data = _get_price_estimate(location)
+        actions.append(DialogueAction(type="show_price", payload=price_data))
+    
+    # Generate LLM response
+    llm = _get_llm()
+    if llm:
+        try:
+            # Set conversation history
+            history = [{"role": t.role, "text": t.text} for t in payload.history]
+            llm.set_history(history)
+            
+            # Build context for LLM
+            context = rag_context if rag_context else None
+            reply = llm.generate_response(transcript, context=context)
+        except Exception as e:
+            reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
+    else:
+        # Fallback if LLM not available
+        if intent["wants_search"]:
+            reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
+        elif intent["wants_price"]:
+            reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
+        else:
+            reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
+    
+    return DialogueStepResponse(reply=reply, actions=actions)
 
 
 @router.post("/rag/query", response_model=RagQueryResponse)
 async def rag_query(payload: RagQueryRequest) -> RagQueryResponse:
-    """Query the property knowledge base using hybrid semantic retrieval."""
+    """Query the property knowledge base using semantic retrieval."""
     if _query_rag is None:
-        # Fallback to stub if retriever not available
+        # Fallback stub
         dummy_doc = RagDocument(
             id="stub-doc-1",
             score=1.0,
-            text="This is a placeholder document for query: " + payload.query,
-            metadata={"note": "Retriever not available"},
+            text="RAG retriever not available. Query: " + payload.query,
+            metadata={"note": "Retriever not initialized"},
         )
         return RagQueryResponse(query=payload.query, results=[dummy_doc])
-
-    results = _query_rag(payload.query, top_k=payload.top_k, filters=payload.filters or {})
-    docs: List[RagDocument] = []
-    for r in results:
-        docs.append(
-            RagDocument(
-                id=str(r.get("id", "")),
-                score=float(r.get("score", 0.0)),
-                text=str(r.get("text", "")),
-                metadata=r.get("metadata") or {},
+    
+    try:
+        results = _query_rag(payload.query, top_k=payload.top_k, filters=payload.filters or {})
+        docs: List[RagDocument] = []
+        for r in results:
+            docs.append(
+                RagDocument(
+                    id=str(r.get("id", "")),
+                    score=float(r.get("score", 0.0)),
+                    text=str(r.get("text", "")),
+                    metadata=r.get("metadata") or {},
+                )
             )
+        return RagQueryResponse(query=payload.query, results=docs)
+    except Exception as e:
+        error_doc = RagDocument(
+            id="error",
+            score=0.0,
+            text=f"Error querying RAG: {str(e)}",
+            metadata={},
         )
-    return RagQueryResponse(query=payload.query, results=docs)
+        return RagQueryResponse(query=payload.query, results=[error_doc])
 
 
 @router.post("/price/predict", response_model=PricePredictionResponse)
 async def price_predict(payload: PricePredictionRequest) -> PricePredictionResponse:
-    """Iteration 2 stub endpoint for price prediction.
-
-    Returns a hard-coded price range with medium confidence. Later this will
-    call a trained regression model over structured property data.
-    """
-    # Simple heuristic stub: fixed range in lakh
+    """Predict property price range."""
+    location = payload.location or "Lahore"
+    area = payload.area_marla or 10.0
+    
+    price_data = _get_price_estimate(location, area)
+    
     return PricePredictionResponse(
-        min_price_lakh=50.0,
-        max_price_lakh=150.0,
-        confidence=0.5,
+        min_price_lakh=price_data["min_price"] / 100000,
+        max_price_lakh=price_data["max_price"] / 100000,
+        confidence=price_data["confidence"],
     )

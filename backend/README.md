@@ -10,8 +10,8 @@ This is the brain of the ORICALO voice agent. It is built with **FastAPI** and h
 
 1.  **Create Virtual Environment**:
     ```bash
-    python -m venv venv
-    source venv/bin/activate  # Windows: `venv\Scripts\activate`
+    python -m venv .venv
+    source .venv/bin/activate  # Windows: `.venv\Scripts\activate`
     ```
 
 2.  **Install Dependencies**:

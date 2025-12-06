@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, Square, Activity, Terminal } from "lucide-react";
+import { Mic, Square, Activity, Terminal, Loader2, CheckCircle2, AlertCircle, Radio } from "lucide-react";
 import PriceWidget from "@/components/PriceWidget";
 import RagWidget from "@/components/RagWidget";
+
+type ModelStatus = "disconnected" | "connected" | "loading" | "ready" | "error" | "warning";
 
 export default function ConsolePage() {
     const [isRecording, setIsRecording] = useState(false);
@@ -13,47 +15,122 @@ export default function ConsolePage() {
     const [history, setHistory] = useState<{ role: string; text: string }[]>([]);
     const [activeWidget, setActiveWidget] = useState<'price' | 'rag' | null>(null);
     const [widgetData, setWidgetData] = useState<any>(null);
+    const [modelStatus, setModelStatus] = useState<ModelStatus>("disconnected");
+    const [statusMessage, setStatusMessage] = useState<string>("Click to initialize");
     const socketRef = useRef<WebSocket | null>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+
+    // Status indicator component
+    const StatusIndicator = () => {
+        const statusConfig = {
+            disconnected: { color: "bg-neutral-500", icon: Radio, pulse: false },
+            connected: { color: "bg-blue-500", icon: Radio, pulse: true },
+            loading: { color: "bg-yellow-500", icon: Loader2, pulse: true },
+            ready: { color: "bg-emerald-500", icon: CheckCircle2, pulse: false },
+            error: { color: "bg-red-500", icon: AlertCircle, pulse: false },
+            warning: { color: "bg-orange-500", icon: AlertCircle, pulse: true },
+            waiting: { color: "bg-yellow-500", icon: Loader2, pulse: true },
+            reset: { color: "bg-blue-500", icon: Radio, pulse: false },
+        };
+
+        const config = statusConfig[modelStatus as keyof typeof statusConfig] || statusConfig.disconnected;
+        const Icon = config.icon;
+
+        return (
+            <div className="flex items-center gap-2">
+                <div className={`relative w-3 h-3 rounded-full ${config.color}`}>
+                    {config.pulse && (
+                        <div className={`absolute inset-0 rounded-full ${config.color} animate-ping opacity-75`} />
+                    )}
+                </div>
+                <Icon className={`w-4 h-4 ${modelStatus === 'loading' ? 'animate-spin' : ''}`} />
+                <span className="text-xs text-neutral-400 max-w-[300px] truncate">{statusMessage}</span>
+            </div>
+        );
+    };
 
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            streamRef.current = stream;
             setIsRecording(true);
-            setTranscript((prev) => [...prev, "System: Recording started..."]);
+            setTranscript((prev) => [...prev, "System: 🎤 Microphone access granted"]);
 
             // Connect to WebSocket
-            const ws = new WebSocket("ws://localhost:8000/ws/transcribe");
+            const ws = new WebSocket("ws://127.0.0.1:8000/ws/transcribe");
             socketRef.current = ws;
 
             ws.onopen = () => {
-                setTranscript((prev) => [...prev, "System: Connected to AI Backend"]);
+                setModelStatus("connected");
+                setStatusMessage("Connected - initializing ASR...");
+                setTranscript((prev) => [...prev, "System: 🔌 Connected to ORICALO backend"]);
 
-                // Start MediaRecorder to stream audio
-                const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+                // Use Web Audio API for raw PCM streaming (faster than MediaRecorder)
+                const audioContext = new AudioContext({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(stream);
 
-                mediaRecorder.ondataavailable = async (event) => {
-                    if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-                        const buffer = await event.data.arrayBuffer();
-                        const base64Audio = btoa(
-                            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-                        );
+                // ScriptProcessor to capture raw audio samples
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-                        ws.send(JSON.stringify({
-                            type: "audio",
-                            data: base64Audio
-                        }));
+                processor.onaudioprocess = (e) => {
+                    if (ws.readyState !== WebSocket.OPEN) return;
+
+                    const inputData = e.inputBuffer.getChannelData(0);
+
+                    // Convert float32 to int16 PCM
+                    const pcmData = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        const s = Math.max(-1, Math.min(1, inputData[i]));
+                        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                     }
+
+                    // Convert to base64
+                    const bytes = new Uint8Array(pcmData.buffer);
+                    const base64Audio = btoa(
+                        bytes.reduce((data, byte) => data + String.fromCharCode(byte), "")
+                    );
+
+                    ws.send(JSON.stringify({
+                        type: "audio",
+                        data: base64Audio,
+                        format: "pcm_s16le",
+                        sampleRate: 16000
+                    }));
                 };
 
-                mediaRecorder.start(100); // Send chunks every 100ms
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                // Store for cleanup
+                (streamRef.current as any)._audioContext = audioContext;
+                (streamRef.current as any)._processor = processor;
             };
 
             ws.onmessage = (event) => {
                 const response = JSON.parse(event.data);
+
+                // Handle status messages from backend
+                if (response.type === "status") {
+                    const status = response.status as ModelStatus;
+                    setModelStatus(status);
+                    setStatusMessage(response.message);
+
+                    // Add important status updates to transcript
+                    if (status === "loading") {
+                        setTranscript((prev) => [...prev, `System: ⏳ ${response.message}`]);
+                    } else if (status === "ready") {
+                        setTranscript((prev) => [...prev, `System: ✅ ${response.message}`]);
+                    } else if (status === "error") {
+                        setTranscript((prev) => [...prev, `System: ❌ ${response.message}`]);
+                    }
+                    return;
+                }
+
                 if (response.type === "transcript") {
                     // Calculate latency (rough estimate)
                     setLatency(Math.floor(Math.random() * 50) + 100);
-                    setTranscript((prev) => [...prev, `AI: ${response.text}`]);
+                    setTranscript((prev) => [...prev, `🎙️ You: ${response.text}`]);
 
                     if (response.is_final) {
                         const finalText: string = response.text ?? "";
@@ -62,7 +139,8 @@ export default function ConsolePage() {
 
                         (async () => {
                             try {
-                                const res = await fetch("http://localhost:8000/dialogue/step", {
+                                setTranscript((prev) => [...prev, "System: 🤔 Processing with LLM..."]);
+                                const res = await fetch("http://127.0.0.1:8000/dialogue/step", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify({
@@ -75,6 +153,7 @@ export default function ConsolePage() {
                                 if (data?.reply) {
                                     setAgentReply(data.reply);
                                     setHistory((prev) => [...prev, { role: "agent", text: data.reply }]);
+                                    setTranscript((prev) => [...prev, `🤖 Agent: ${data.reply}`]);
                                 }
 
                                 // Handle Actions
@@ -83,14 +162,17 @@ export default function ConsolePage() {
                                         if (action.type === "show_price") {
                                             setActiveWidget("price");
                                             setWidgetData(action.payload);
+                                            setTranscript((prev) => [...prev, "System: 📊 Showing price estimation"]);
                                         } else if (action.type === "show_listings") {
                                             setActiveWidget("rag");
                                             setWidgetData(action.payload);
+                                            setTranscript((prev) => [...prev, "System: 🏠 Showing property listings"]);
                                         }
                                     });
                                 }
                             } catch (e) {
                                 setAgentReply("[Error] Failed to fetch agent reply.");
+                                setTranscript((prev) => [...prev, "System: ❌ LLM request failed"]);
                             }
                         })();
                     }
@@ -98,26 +180,54 @@ export default function ConsolePage() {
             };
 
             ws.onerror = (error) => {
-                console.error("WebSocket error:", error);
-                setTranscript((prev) => [...prev, "System: WebSocket Error"]);
+                console.warn("WebSocket error:", error);
+                setModelStatus("error");
+                setStatusMessage("WebSocket connection error");
+                setTranscript((prev) => [...prev, "System: ❌ WebSocket Error - check backend"]);
             };
 
             ws.onclose = () => {
-                setTranscript((prev) => [...prev, "System: Connection closed"]);
+                setModelStatus("disconnected");
+                setStatusMessage("Connection closed");
+                setTranscript((prev) => [...prev, "System: 🔌 Connection closed"]);
             };
 
         } catch (err) {
             console.error("Failed to start recording", err);
-            setTranscript((prev) => [...prev, "System: Error accessing microphone"]);
+            setModelStatus("error");
+            setStatusMessage("Microphone access denied");
+            setTranscript((prev) => [...prev, "System: ❌ Error accessing microphone"]);
         }
     };
 
     const stopRecording = () => {
         setIsRecording(false);
-        setTranscript((prev) => [...prev, "System: Recording stopped"]);
+        setTranscript((prev) => [...prev, "System: ⏹️ Recording stopped"]);
+
+        // Clean up AudioContext and processor
+        if (streamRef.current) {
+            const ctx = (streamRef.current as any)._audioContext;
+            const proc = (streamRef.current as any)._processor;
+
+            if (proc) {
+                proc.disconnect();
+            }
+            if (ctx && ctx.state !== 'closed') {
+                ctx.close();
+            }
+
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+
+        // Close WebSocket
         if (socketRef.current) {
             socketRef.current.close();
+            socketRef.current = null;
         }
+
+        setModelStatus("disconnected");
+        setStatusMessage("Session ended");
     };
 
     return (
@@ -127,9 +237,12 @@ export default function ConsolePage() {
                     <Activity className="w-5 h-5 text-emerald-500" />
                     ORICALO Console
                 </h1>
-                <div className="flex gap-4 text-sm text-neutral-500">
-                    <span>STATUS: {isRecording ? "LIVE" : "IDLE"}</span>
-                    <span>LATENCY: {latency}ms</span>
+                <div className="flex gap-6 items-center">
+                    <StatusIndicator />
+                    <div className="flex gap-4 text-sm text-neutral-500">
+                        <span>STATUS: {isRecording ? "LIVE" : "IDLE"}</span>
+                        <span>LATENCY: {latency}ms</span>
+                    </div>
                 </div>
             </header>
 
@@ -157,6 +270,22 @@ export default function ConsolePage() {
                                 </>
                             )}
                         </button>
+
+                        {/* Model Status Card */}
+                        <div className={`mt-4 p-3 rounded-lg border ${modelStatus === 'ready' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                            modelStatus === 'loading' ? 'bg-yellow-500/10 border-yellow-500/30' :
+                                modelStatus === 'error' ? 'bg-red-500/10 border-red-500/30' :
+                                    'bg-neutral-800/50 border-neutral-700'
+                            }`}>
+                            <div className="text-xs text-neutral-400 mb-1">ASR Model Status</div>
+                            <div className={`text-sm font-medium ${modelStatus === 'ready' ? 'text-emerald-400' :
+                                modelStatus === 'loading' ? 'text-yellow-400' :
+                                    modelStatus === 'error' ? 'text-red-400' :
+                                        'text-neutral-300'
+                                }`}>
+                                {statusMessage}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 h-64 flex items-center justify-center">
@@ -178,7 +307,12 @@ export default function ConsolePage() {
                                 <span className="text-neutral-600 mr-2">
                                     [{new Date().toLocaleTimeString()}]
                                 </span>
-                                <span className={line.startsWith("System:") ? "text-yellow-500" : "text-emerald-400"}>
+                                <span className={
+                                    line.startsWith("System:") ? "text-yellow-500" :
+                                        line.startsWith("🎙️") ? "text-blue-400" :
+                                            line.startsWith("🤖") ? "text-emerald-400" :
+                                                "text-neutral-300"
+                                }>
                                     {line}
                                 </span>
                             </div>
@@ -220,3 +354,4 @@ export default function ConsolePage() {
         </div>
     );
 }
+

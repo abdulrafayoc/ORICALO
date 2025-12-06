@@ -36,6 +36,7 @@ class Ear_hf(BaseEar):
         r"^thank you\s+",  # "thank you " at start
         r"^\s*\.\.+\s*",  # Just ellipsis
         r"^\s*you\s*\.\s*",  # Just "you."
+        r"^\s*ملکی\s*",  # Just "ملکی"
     ]
     
     def __init__(

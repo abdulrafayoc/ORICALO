@@ -7,6 +7,8 @@ app = FastAPI(title="ORICALO AI Backend", version="0.1.0")
 origins = [
     "http://localhost:3000",  # Next.js Frontend
     "http://127.0.0.1:3000",
+    "http://localhost:8000",  # FastAPI Backend
+    "http://127.0.0.1:8000",
 ]
 
 app.add_middleware(
