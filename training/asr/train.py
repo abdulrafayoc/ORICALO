@@ -180,5 +180,25 @@ def main():
     processor.save_pretrained(str(OUTPUT_DIR))
     print(f"Model saved to {OUTPUT_DIR}")
 
+    # 8. Export to ONNX & Quantize
+    try:
+        # Import dynamically or assume it's in the same directory/path
+        import sys
+        sys.path.append(str(SCRIPT_DIR))
+        from export_onnx import export_and_quantize
+        
+        print("Starting ONNX export and quantization...")
+        onnx_output_dir = MODELS_DIR / "whisper-tiny-urdu-onnx"
+        export_and_quantize(
+            model_id=str(OUTPUT_DIR),
+            output_dir=str(onnx_output_dir),
+            quantize=True
+        )
+        print(f"ONNX model saved to {onnx_output_dir}")
+    except Exception as e:
+        print(f"Failed to export ONNX: {e}")
+        import traceback
+        traceback.print_exc()
+
 if __name__ == "__main__":
     main()

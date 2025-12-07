@@ -1,0 +1,457 @@
+[
+  {
+    "id": "Real Estate",
+    "text": "ریئل اسٹیٹ",
+    "category": "Domain"
+  },
+  {
+    "id": "Property",
+    "text": "پراپرٹی",
+    "category": "Domain"
+  },
+  {
+    "id": "House",
+    "text": "گھر",
+    "category": "Property Type"
+  },
+  {
+    "id": "Flat",
+    "text": "فلیٹ",
+    "category": "Property Type"
+  },
+  {
+    "id": "Apartment",
+    "text": "اپارٹمنٹ",
+    "category": "Property Type"
+  },
+  {
+    "id": "Plot",
+    "text": "پلاٹ",
+    "category": "Property Type"
+  },
+  {
+    "id": "Commercial",
+    "text": "کمرشل",
+    "category": "Property Type"
+  },
+  {
+    "id": "Residential",
+    "text": "رہائشی",
+    "category": "Property Type"
+  },
+  {
+    "id": "Penthouse",
+    "text": "پینٹ ہاؤس",
+    "category": "Property Type"
+  },
+  {
+    "id": "Farm House",
+    "text": "فارم ہاؤس",
+    "category": "Property Type"
+  },
+  {
+    "id": "Shop",
+    "text": "دکان",
+    "category": "Property Type"
+  },
+  {
+    "id": "Office",
+    "text": "دفتر",
+    "category": "Property Type"
+  },
+  {
+    "id": "Plaza",
+    "text": "پلازہ",
+    "category": "Property Type"
+  },
+  {
+    "id": "Square Feet",
+    "text": "سکوائر فٹ",
+    "category": "Measurement"
+  },
+  {
+    "id": "Square Yards",
+    "text": "سکوائر یارڈ",
+    "category": "Measurement"
+  },
+  {
+    "id": "Marla",
+    "text": "مرلہ",
+    "category": "Measurement"
+  },
+  {
+    "id": "Kanal",
+    "text": "کنال",
+    "category": "Measurement"
+  },
+  {
+    "id": "Acre",
+    "text": "ایکڑ",
+    "category": "Measurement"
+  },
+  {
+    "id": "Price",
+    "text": "قیمت",
+    "category": "Financial"
+  },
+  {
+    "id": "Budget",
+    "text": "بجت",
+    "category": "Financial"
+  },
+  {
+    "id": "Crore",
+    "text": "کروڑ",
+    "category": "Number"
+  },
+  {
+    "id": "Lakh",
+    "text": "لاکھ",
+    "category": "Number"
+  },
+  {
+    "id": "Thousand",
+    "text": "ہزار",
+    "category": "Number"
+  },
+  {
+    "id": "Million",
+    "text": "ملین",
+    "category": "Number"
+  },
+  {
+    "id": "Billion",
+    "text": "بلین",
+    "category": "Number"
+  },
+  {
+    "id": "Location",
+    "text": "لوکیشن",
+    "category": "Location"
+  },
+  {
+    "id": "City",
+    "text": "شہر",
+    "category": "Location"
+  },
+  {
+    "id": "Society",
+    "text": "سوسائٹی",
+    "category": "Location"
+  },
+  {
+    "id": "Phase",
+    "text": "فیز",
+    "category": "Location"
+  },
+  {
+    "id": "Block",
+    "text": "بلاک",
+    "category": "Location"
+  },
+  {
+    "id": "Sector",
+    "text": "سیکٹر",
+    "category": "Location"
+  },
+  {
+    "id": "DHA",
+    "text": "ڈی ایچ اے",
+    "category": "Location"
+  },
+  {
+    "id": "Bahria Town",
+    "text": "بحریہ ٹاؤن",
+    "category": "Location"
+  },
+  {
+    "id": "Gulberg",
+    "text": "گلبرگ",
+    "category": "Location"
+  },
+  {
+    "id": "Johar Town",
+    "text": "جوہر ٹاؤن",
+    "category": "Location"
+  },
+  {
+    "id": "Wapda Town",
+    "text": "واپڈا ٹاؤن",
+    "category": "Location"
+  },
+  {
+    "id": "Askari",
+    "text": "عسکری",
+    "category": "Location"
+  },
+  {
+    "id": "Cantt",
+    "text": "کینٹ",
+    "category": "Location"
+  },
+  {
+    "id": "Sale",
+    "text": "سیل",
+    "category": "Action"
+  },
+  {
+    "id": "Rent",
+    "text": "کرایہ",
+    "category": "Action"
+  },
+  {
+    "id": "Buy",
+    "text": "خریدنا",
+    "category": "Action"
+  },
+  {
+    "id": "Invest",
+    "text": "سرمایہ کاری",
+    "category": "Action"
+  },
+  {
+    "id": "Visit",
+    "text": "وزٹ",
+    "category": "Action"
+  },
+  {
+    "id": "Booking",
+    "text": "بکنگ",
+    "category": "Action"
+  },
+  {
+    "id": "Possession",
+    "text": "قبضہ",
+    "category": "Legal"
+  },
+  {
+    "id": "Transfer",
+    "text": "ٹرانسفر",
+    "category": "Legal"
+  },
+  {
+    "id": "Registry",
+    "text": "رجسٹری",
+    "category": "Legal"
+  },
+  {
+    "id": "NOC",
+    "text": "این او سی",
+    "category": "Legal"
+  },
+  {
+    "id": "Installment",
+    "text": "قسط",
+    "category": "Financial"
+  },
+  {
+    "id": "Down Payment",
+    "text": "ڈاؤن پیمنٹ",
+    "category": "Financial"
+  },
+  {
+    "id": "Cash",
+    "text": "کیش",
+    "category": "Financial"
+  },
+  {
+    "id": "Bedroom",
+    "text": "بیڈروم",
+    "category": "Feature"
+  },
+  {
+    "id": "Bathroom",
+    "text": "باتھ روم",
+    "category": "Feature"
+  },
+  {
+    "id": "Kitchen",
+    "text": "کچن",
+    "category": "Feature"
+  },
+  {
+    "id": "Garage",
+    "text": "گیراج",
+    "category": "Feature"
+  },
+  {
+    "id": "Lawn",
+    "text": "لان",
+    "category": "Feature"
+  },
+  {
+    "id": "Double Story",
+    "text": "ڈبل سٹوری",
+    "category": "Feature"
+  },
+  {
+    "id": "Single Story",
+    "text": "سنگل سٹوری",
+    "category": "Feature"
+  },
+  {
+    "id": "Corner",
+    "text": "کارنر",
+    "category": "Feature"
+  },
+  {
+    "id": "Park Facing",
+    "text": "پارک فیسنگ",
+    "category": "Feature"
+  },
+  {
+    "id": "Main Boulevard",
+    "text": "مین بلیوارڈ",
+    "category": "Feature"
+  },
+  {
+    "id": "Gas",
+    "text": "گیس",
+    "category": "Utility"
+  },
+  {
+    "id": "Electricity",
+    "text": "بجلی",
+    "category": "Utility"
+  },
+  {
+    "id": "Water",
+    "text": "پانی",
+    "category": "Utility"
+  },
+  {
+    "id": "Sewerage",
+    "text": "سیوریج",
+    "category": "Utility"
+  },
+  {
+    "id": "Furnished",
+    "text": "فرنشڈ",
+    "category": "Condition"
+  },
+  {
+    "id": "Brand New",
+    "text": "برانڈ نیو",
+    "category": "Condition"
+  },
+  {
+    "id": "Old",
+    "text": "پرانا",
+    "category": "Condition"
+  },
+  {
+    "id": "Files",
+    "text": "فائل",
+    "category": "Legal"
+  },
+  {
+    "id": "Balloting",
+    "text": "بیلوٹنگ",
+    "category": "Legal"
+  },
+  {
+    "id": "I want to buy a house",
+    "text": "میں ایک گھر خریدنا چاہتا ہوں",
+    "category": "Sentence"
+  },
+  {
+    "id": "What is the price?",
+    "text": "قیمت کیا ہے؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "Show me plots in DHA",
+    "text": "مجھے ڈی ایچ اے میں پلاٹ دکھائیں",
+    "category": "Sentence"
+  },
+  {
+    "id": "Is this available?",
+    "text": "کیا یہ دستیاب ہے؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "I have a budget of 1 Crore",
+    "text": "میرا بجٹ ایک کروڑ ہے",
+    "category": "Sentence"
+  },
+  {
+    "id": "Call me back",
+    "text": "مجھے واپس کال کریں",
+    "category": "Sentence"
+  },
+  {
+    "id": "Send me details",
+    "text": "مجھے تفصیلات بھیجیں",
+    "category": "Sentence"
+  },
+  {
+    "id": "Where is this located?",
+    "text": "یہ کہاں واقع ہے؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "How many bedrooms?",
+    "text": "کتنے کمرے ہیں؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "Is gas available?",
+    "text": "کیا گیس موجود ہے؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "I want to sell my plot",
+    "text": "میں اپنا پلاٹ بیچنا چاہتا ہوں",
+    "category": "Sentence"
+  },
+  {
+    "id": "Are installments available?",
+    "text": "کیا قسطوں پر دستیاب ہے؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "Final price?",
+    "text": "فائنل قیمت کیا ہوگی؟",
+    "category": "Sentence"
+  },
+  {
+    "id": "Corner plot required",
+    "text": "مجھے کارنر پلاٹ چاہیے",
+    "category": "Sentence"
+  },
+  {
+    "id": "Near park",
+    "text": "پارک کے قریب",
+    "category": "Sentence"
+  },
+  {
+    "id": "Ten Marla house",
+    "text": "دس مرلہ گھر",
+    "category": "Sentence"
+  },
+  {
+    "id": "Five Marla plot",
+    "text": "پانچ مرلہ پلاٹ",
+    "category": "Sentence"
+  },
+  {
+    "id": "One Kanal bungalow",
+    "text": "ایک کنال کوٹھی",
+    "category": "Sentence"
+  },
+  {
+    "id": "Ground floor",
+    "text": "گراؤنڈ فلور",
+    "category": "Sentence"
+  },
+  {
+    "id": "First floor",
+    "text": "فرسٹ فلور",
+    "category": "Sentence"
+  },
+  {
+    "id": "Basement",
+    "text": "بیسمنٹ",
+    "category": "Sentence"
+  }
+]

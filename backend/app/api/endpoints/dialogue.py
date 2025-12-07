@@ -209,70 +209,78 @@ def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]
 # API Endpoints
 # ============================================================================
 
-@router.post("/dialogue/step", response_model=DialogueStepResponse)
-async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
+from fastapi.responses import StreamingResponse
+
+@router.post("/dialogue/step")
+async def dialogue_step(payload: DialogueStepRequest):
     """
-    Process dialogue step with LLM + RAG.
-    
-    1. Detect user intent from transcript
-    2. If property-related, fetch RAG context
-    3. Generate LLM response with context
-    4. Add actions for price/listing widgets
+    Process dialogue step with LLM + RAG (Streaming).
+    Returns NDJSON stream of events: {"type": "token"|"action"|"error", ...}
     """
-    transcript = payload.latest_transcript
-    intent = _detect_intent(transcript)
-    actions: List[DialogueAction] = []
-    
-    # Get RAG context if property-related query
-    rag_context = ""
-    if intent["wants_search"] or intent["has_location"]:
-        rag_context = _get_rag_context(transcript)
-        
-        # Add listings action for frontend widget
-        if _query_rag and intent["wants_search"]:
-            results = _query_rag(transcript, top_k=3)
-            if results:
-                listings = []
-                for r in results[:3]:
-                    meta = r.get("metadata", {})
-                    listings.append({
-                        "id": r.get("id", ""),
-                        "title": r.get("text", "")[:100],
-                        "location": meta.get("location", ""),
-                        "price": str(meta.get("price", "N/A")),
-                        "image": ""
-                    })
-                actions.append(DialogueAction(type="show_listings", payload={"listings": listings}))
-    
-    # Add price action if price query detected
-    if intent["wants_price"]:
-        location = _extract_location(transcript) or "Lahore"
-        price_data = _get_price_estimate(location)
-        actions.append(DialogueAction(type="show_price", payload=price_data))
-    
-    # Generate LLM response
-    llm = _get_llm()
-    if llm:
+    async def generate_stream():
         try:
-            # Set conversation history
-            history = [{"role": t.role, "text": t.text} for t in payload.history]
-            llm.set_history(history)
+            transcript = payload.latest_transcript
+            intent = _detect_intent(transcript)
             
-            # Build context for LLM
-            context = rag_context if rag_context else None
-            reply = llm.generate_response(transcript, context=context)
+            # 1. Processing Actions
+            actions: List[DialogueAction] = []
+            rag_context = ""
+            
+            # RAG Search
+            if intent["wants_search"] or intent["has_location"]:
+                rag_context = _get_rag_context(transcript)
+                if _query_rag and intent["wants_search"]:
+                    results = _query_rag(transcript, top_k=3)
+                    if results:
+                        listings = []
+                        for r in results[:3]:
+                            meta = r.get("metadata", {})
+                            listings.append({
+                                "id": r.get("id", ""),
+                                "title": r.get("text", "")[:100],
+                                "location": meta.get("location", ""),
+                                "price": str(meta.get("price", "N/A")),
+                                "image": ""
+                            })
+                        action = DialogueAction(type="show_listings", payload={"listings": listings})
+                        yield json.dumps({"type": "action", "data": action.dict()}) + "\n"
+
+            # Price Prediction
+            if intent["wants_price"]:
+                location = _extract_location(transcript) or "Lahore"
+                price_data = _get_price_estimate(location)
+                action = DialogueAction(type="show_price", payload=price_data)
+                yield json.dumps({"type": "action", "data": action.dict()}) + "\n"
+            
+            # 2. LLM Generation
+            llm = _get_llm()
+            if llm:
+                # Set history
+                history = [{"role": t.role, "text": t.text} for t in payload.history]
+                llm.set_history(history)
+                
+                # Build context
+                context = rag_context if rag_context else None
+                
+                # Stream tokens
+                for chunk in llm.generate_response_stream(transcript, context=context):
+                    yield json.dumps({"type": "token", "content": chunk}) + "\n"
+            else:
+                # Fallback logic
+                fallback_text = ""
+                if intent["wants_search"]:
+                    fallback_text = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔"
+                elif intent["wants_price"]:
+                    fallback_text = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
+                else:
+                    fallback_text = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔"
+                
+                yield json.dumps({"type": "token", "content": fallback_text}) + "\n"
+
         except Exception as e:
-            reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
-    else:
-        # Fallback if LLM not available
-        if intent["wants_search"]:
-            reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
-        elif intent["wants_price"]:
-            reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
-        else:
-            reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
-    
-    return DialogueStepResponse(reply=reply, actions=actions)
+            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+
+    return StreamingResponse(generate_stream(), media_type="application/x-ndjson")
 
 
 @router.post("/rag/query", response_model=RagQueryResponse)
