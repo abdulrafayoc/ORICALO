@@ -1,30 +1,23 @@
 """
 HuggingFace Local LLM for ORICALO Urdu Real Estate Voice Agent.
 Uses transformers library or llama-cpp-python for local/quantized models.
-Uses transformers library or llama-cpp-python for local/quantized models.
 """
 
 import os
 from typing import Generator, List, Dict, Optional, Any
-from typing import Generator, List, Dict, Optional, Any
 import json
 import re
-from threading import Thread
 from threading import Thread
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Backend availability
-# Backend availability
 try:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
     TRANSFORMERS_AVAILABLE = True
-    from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
-    TRANSFORMERS_AVAILABLE = True
 except ImportError:
-    TRANSFORMERS_AVAILABLE = False
     TRANSFORMERS_AVAILABLE = False
     torch = None
 
@@ -39,7 +32,6 @@ except ImportError:
 # CONFIGURATION
 # ==============================================================================
 
-# Choose backend: "transformers" or "llama"
 # Determine model type
 # Priority: 
 # 1. LLM_MODEL_TYPE env var
@@ -82,48 +74,27 @@ SYSTEM_PROMPT = """
 
 class HuggingFaceChatbot:
     """Unified local model chatbot supporting Transformers and Llama.cpp."""
-    """Unified local model chatbot supporting Transformers and Llama.cpp."""
     
     def __init__(
         self,
         model_id: str = DEFAULT_MODEL_ID,
-        model_type: str = DEFAULT_MODEL_TYPE,
         model_type: str = DEFAULT_MODEL_TYPE,
         device: Optional[str] = None,
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_new_tokens: int = 256,
         # Transformers specific
-        # Transformers specific
         load_in_8bit: bool = False,
         load_in_4bit: bool = True,
-        # Llama specific
-        n_ctx: int = 2048,
-        n_gpu_layers: int = -1, # -1 for all layers on GPU
         # Llama specific
         n_ctx: int = 2048,
         n_gpu_layers: int = -1, # -1 for all layers on GPU
     ):
         self.model_id = model_id
         self.model_type = model_type.lower()
-        self.model_type = model_type.lower()
         self.system_prompt = system_prompt or SYSTEM_PROMPT
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
-        self.device = device
-        
-        # Conversation history
-        self.messages: List[Dict[str, str]] = []
-        
-        # Backend implementations
-        self.transformers_model = None
-        self.transformers_tokenizer = None
-        self.llama_model = None
-        
-        if self.model_type == "transformers":
-            self._init_transformers(load_in_8bit, load_in_4bit)
-        elif self.model_type == "llama":
-            self._init_llama(n_ctx, n_gpu_layers)
         self.device = device
         
         # Conversation history
@@ -155,22 +126,6 @@ class HuggingFaceChatbot:
              device_map = None
 
         # Tweak for quantization
-            raise ValueError(f"Unknown model_type: {model_type}")
-
-    def _init_transformers(self, load_in_8bit, load_in_4bit):
-        if not TRANSFORMERS_AVAILABLE:
-            raise RuntimeError("transformers not installed. Run: pip install transformers torch accelerate")
-        
-        print(f"[LLM] Loading Transformers model: {self.model_id}")
-        
-        device_map = "auto"
-        if not self.device and torch.cuda.is_available():
-             self.device = "cuda"
-        elif not self.device:
-             self.device = "cpu"
-             device_map = None
-
-        # Tweak for quantization
         quantization_config = None
         if self.device == "cuda":
             try:
@@ -185,20 +140,15 @@ class HuggingFaceChatbot:
                     quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             except ImportError:
                 print("[LLM] bitsandbytes not found, quantization disabled.")
-                print("[LLM] bitsandbytes not found, quantization disabled.")
         
         load_kwargs = {
             "trust_remote_code": True,
-            "device_map": device_map,
             "device_map": device_map,
         }
         if quantization_config:
             load_kwargs["quantization_config"] = quantization_config
         elif self.device == "cuda":
             load_kwargs["torch_dtype"] = torch.float16
-
-        self.transformers_tokenizer = AutoTokenizer.from_pretrained(self.model_id, trust_remote_code=True)
-        self.transformers_model = AutoModelForCausalLM.from_pretrained(self.model_id, **load_kwargs)
 
         self.transformers_tokenizer = AutoTokenizer.from_pretrained(self.model_id, trust_remote_code=True)
         self.transformers_model = AutoModelForCausalLM.from_pretrained(self.model_id, **load_kwargs)
@@ -275,9 +225,6 @@ class HuggingFaceChatbot:
         for m in self.messages:
             role = "user" if m["role"] == "user" else "assistant" # map 'agent' to 'assistant'
             messages.append({"role": role, "content": m["content"]})
-        for m in self.messages:
-            role = "user" if m["role"] == "user" else "assistant" # map 'agent' to 'assistant'
-            messages.append({"role": role, "content": m["content"]})
         
         user_content = user_input
         if context:
@@ -349,93 +296,7 @@ class HuggingFaceChatbot:
 
     def _stream_llama(self, user_input: str, context: Optional[str] = None):
         messages = self._build_messages(user_input, context)
-        return messages
-
-    def generate_response(self, user_input: str, context: Optional[str] = None) -> str:
-        """Blocking generation."""
-        # Accumulate stream
-        chunks = []
-        for chunk in self.generate_response_stream(user_input, context):
-            chunks.append(chunk)
-        return "".join(chunks).strip()
-
-    def generate_response_stream(self, user_input: str, context: Optional[str] = None) -> Generator[str, None, None]:
-        if self.model_type == "transformers":
-            yield from self._stream_transformers(user_input, context)
-        elif self.model_type == "llama":
-            yield from self._stream_llama(user_input, context)
-            
-    def _stream_transformers(self, user_input: str, context: Optional[str] = None):
-        messages = self._build_messages(user_input, context)
         
-        # Apply template
-        try:
-             # Check for chat template availability
-            if self.transformers_tokenizer.chat_template:
-                 prompt = self.transformers_tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
-                )
-            else:
-                 raise ValueError("No chat template")
-        except:
-             # Fallback
-            prompt = ""
-            for m in messages:
-                prompt += f"<{m['role']}>\n{m['content']}\n"
-            prompt += "<assistant>\n"
-
-        inputs = self.transformers_tokenizer(prompt, return_tensors="pt").to(self.transformers_model.device)
-        
-        streamer = TextIteratorStreamer(
-            self.transformers_tokenizer, 
-            skip_prompt=True, 
-            skip_special_tokens=True,
-            timeout=10.0
-        )
-        
-        generation_kwargs = dict(
-            **inputs,
-            streamer=streamer,
-            max_new_tokens=self.max_new_tokens,
-            temperature=self.temperature,
-            do_sample=True,
-            pad_token_id=self.transformers_tokenizer.eos_token_id,
-        )
-        
-        thread = Thread(target=self.transformers_model.generate, kwargs=generation_kwargs)
-        thread.start()
-        
-        accumulated_text = ""
-        for new_text in streamer:
-            accumulated_text += new_text
-            yield new_text
-            
-        self._update_history(user_input, accumulated_text)
-
-    def _stream_llama(self, user_input: str, context: Optional[str] = None):
-        messages = self._build_messages(user_input, context)
-        
-        # Llama-cpp-python handles chat templates internally usually, or we can use the messages API
-        # It has a create_chat_completion method compatible with OpenAI API
-        
-        response_iter = self.llama_model.create_chat_completion(
-            messages=messages,
-            max_tokens=self.max_new_tokens,
-            temperature=self.temperature,
-            stream=True
-        )
-        
-        accumulated_text = ""
-        for chunk in response_iter:
-            delta = chunk["choices"][0]["delta"]
-            if "content" in delta:
-                text_chunk = delta["content"]
-                accumulated_text += text_chunk
-                yield text_chunk
-                
-        self._update_history(user_input, accumulated_text)
-
-    def _update_history(self, user_input: str, response: str):
         # Llama-cpp-python handles chat templates internally usually, or we can use the messages API
         # It has a create_chat_completion method compatible with OpenAI API
         
@@ -460,8 +321,6 @@ class HuggingFaceChatbot:
         self.messages.append({"role": "user", "content": user_input})
         self.messages.append({"role": "assistant", "content": response.strip()})
 
-        self.messages.append({"role": "assistant", "content": response.strip()})
-
     def reset_conversation(self):
         self.messages = []
     
@@ -471,18 +330,14 @@ class HuggingFaceChatbot:
             role = turn.get("role", "user").lower()
             if role == "agent": role = "assistant"
             self.messages.append({"role": role, "content": turn.get("text", "")})
-            if role == "agent": role = "assistant"
-            self.messages.append({"role": role, "content": turn.get("text", "")})
 
 
 def create_huggingface_chatbot(**kwargs) -> HuggingFaceChatbot:
-    """Factory function."""
     """Factory function."""
     return HuggingFaceChatbot(**kwargs)
 
 
 if __name__ == "__main__":
-    # Test block
     # Test block
     print("Testing HuggingFace chatbot...")
     try:
@@ -496,17 +351,5 @@ if __name__ == "__main__":
             print(chunk, end="", flush=True)
             full_resp += chunk
         print("\nDone.")
-        # Default loads whatever is configured in DEFAULT_MODEL_TYPE/ID
-        bot = HuggingFaceChatbot() 
-        print(f"Loaded backend: {bot.model_type}")
-        
-        print("Streamed response:")
-        full_resp = ""
-        for chunk in bot.generate_response_stream("mujhe DHA Lahore mein 10 marla ghar chahiye"):
-            print(chunk, end="", flush=True)
-            full_resp += chunk
-        print("\nDone.")
     except Exception as e:
         print(f"Error: {e}")
-
-
