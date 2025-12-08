@@ -159,27 +159,58 @@ export default function ConsolePage() {
                                         metadata: { latency }
                                     })
                                 });
-                                const data = await res.json();
-                                if (data?.reply) {
-                                    setAgentReply(data.reply);
-                                    setHistory((prev) => [...prev, { role: "agent", text: data.reply }]);
-                                    setTranscript((prev) => [...prev, `🤖 Agent: ${data.reply}`]);
+
+                                if (!res.body) throw new Error("No response body");
+
+                                const reader = res.body.getReader();
+                                const decoder = new TextDecoder();
+                                let buffer = "";
+                                let currentReply = "";
+
+                                while (true) {
+                                    const { done, value } = await reader.read();
+                                    if (done) break;
+
+                                    buffer += decoder.decode(value, { stream: true });
+                                    const lines = buffer.split("\n");
+                                    buffer = lines.pop() || ""; // Keep last partial line
+
+                                    for (const line of lines) {
+                                        if (!line.trim()) continue;
+                                        try {
+                                            const event = JSON.parse(line);
+
+                                            if (event.type === "token") {
+                                                currentReply += event.content;
+                                                setAgentReply(currentReply);
+                                                // Update history dynamically if needed, or at end
+                                            } else if (event.type === "action") {
+                                                const action = event.data;
+                                                if (action.type === "show_price") {
+                                                    setActiveWidget("price");
+                                                    setWidgetData(action.payload);
+                                                    setTranscript((prev) => [...prev, "System: 📊 Showing price estimation"]);
+                                                } else if (action.type === "show_listings") {
+                                                    setActiveWidget("rag");
+                                                    setWidgetData(action.payload);
+                                                    setTranscript((prev) => [...prev, "System: 🏠 Showing property listings"]);
+                                                }
+                                            } else if (event.type === "error") {
+                                                console.error("Stream error:", event.message);
+                                                setTranscript((prev) => [...prev, `System: ❌ ${event.message}`]);
+                                            }
+                                        } catch (e) {
+                                            console.warn("Failed to parse line:", line);
+                                        }
+                                    }
                                 }
 
-                                // Handle Actions
-                                if (data?.actions && Array.isArray(data.actions)) {
-                                    data.actions.forEach((action: any) => {
-                                        if (action.type === "show_price") {
-                                            setActiveWidget("price");
-                                            setWidgetData(action.payload);
-                                            setTranscript((prev) => [...prev, "System: 📊 Showing price estimation"]);
-                                        } else if (action.type === "show_listings") {
-                                            setActiveWidget("rag");
-                                            setWidgetData(action.payload);
-                                            setTranscript((prev) => [...prev, "System: 🏠 Showing property listings"]);
-                                        }
-                                    });
+                                // Finalize history
+                                if (currentReply) {
+                                    setHistory((prev) => [...prev, { role: "agent", text: currentReply }]);
+                                    setTranscript((prev) => [...prev, `🤖 Agent: ${currentReply}`]);
                                 }
+
                             } catch (e) {
                                 setAgentReply("[Error] Failed to fetch agent reply.");
                                 setTranscript((prev) => [...prev, "System: ❌ LLM request failed"]);
