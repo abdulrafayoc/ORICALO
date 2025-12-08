@@ -255,7 +255,9 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
     if llm:
         try:
             # Set conversation history
-            history = [{"role": t.role, "text": t.text} for t in payload.history]
+            # User requested short term memory of at least 6 turns.
+            recent_history = payload.history[-12:] 
+            history = [{"role": t.role, "text": t.text} for t in recent_history]
             llm.set_history(history)
             
             # Build context for LLM
