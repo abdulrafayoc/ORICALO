@@ -220,8 +220,8 @@ class HuggingFaceChatbot:
             
         print("[LLM] Llama model loaded.")
     
-    def _build_messages(self, user_input: str, context: Optional[str] = None) -> List[Dict[str, str]]:
-        messages = [{"role": "system", "content": self.system_prompt}]
+    def _build_messages(self, user_input: str, context: Optional[str] = None, system_prompt: Optional[str] = None) -> List[Dict[str, str]]:
+        messages = [{"role": "system", "content": system_prompt or self.system_prompt}]
         for m in self.messages:
             role = "user" if m["role"] == "user" else "assistant" # map 'agent' to 'assistant'
             messages.append({"role": role, "content": m["content"]})
@@ -233,22 +233,22 @@ class HuggingFaceChatbot:
         messages.append({"role": "user", "content": user_content})
         return messages
 
-    def generate_response(self, user_input: str, context: Optional[str] = None) -> str:
+    def generate_response(self, user_input: str, context: Optional[str] = None, system_prompt: Optional[str] = None) -> str:
         """Blocking generation."""
         # Accumulate stream
         chunks = []
-        for chunk in self.generate_response_stream(user_input, context):
+        for chunk in self.generate_response_stream(user_input, context, system_prompt):
             chunks.append(chunk)
         return "".join(chunks).strip()
 
-    def generate_response_stream(self, user_input: str, context: Optional[str] = None) -> Generator[str, None, None]:
+    def generate_response_stream(self, user_input: str, context: Optional[str] = None, system_prompt: Optional[str] = None) -> Generator[str, None, None]:
         if self.model_type == "transformers":
-            yield from self._stream_transformers(user_input, context)
+            yield from self._stream_transformers(user_input, context, system_prompt)
         elif self.model_type == "llama":
-            yield from self._stream_llama(user_input, context)
+            yield from self._stream_llama(user_input, context, system_prompt)
             
-    def _stream_transformers(self, user_input: str, context: Optional[str] = None):
-        messages = self._build_messages(user_input, context)
+    def _stream_transformers(self, user_input: str, context: Optional[str] = None, system_prompt: Optional[str] = None):
+        messages = self._build_messages(user_input, context, system_prompt)
         
         # Apply template
         try:
@@ -294,8 +294,8 @@ class HuggingFaceChatbot:
             
         self._update_history(user_input, accumulated_text)
 
-    def _stream_llama(self, user_input: str, context: Optional[str] = None):
-        messages = self._build_messages(user_input, context)
+    def _stream_llama(self, user_input: str, context: Optional[str] = None, system_prompt: Optional[str] = None):
+        messages = self._build_messages(user_input, context, system_prompt)
         
         # Llama-cpp-python handles chat templates internally usually, or we can use the messages API
         # It has a create_chat_completion method compatible with OpenAI API

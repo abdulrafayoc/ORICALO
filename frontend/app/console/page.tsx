@@ -8,6 +8,13 @@ import WaveformVisualizer from "@/components/WaveformVisualizer";
 
 type ModelStatus = "disconnected" | "connected" | "loading" | "ready" | "error" | "warning";
 
+interface Agent {
+    id: number;
+    name: string;
+    slug: string;
+    description: string | null;
+}
+
 export default function ConsolePage() {
     const [isRecording, setIsRecording] = useState(false);
     const [transcript, setTranscript] = useState<string[]>([]);
@@ -22,6 +29,19 @@ export default function ConsolePage() {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+
+    // Fetch agents on mount
+    useEffect(() => {
+        fetch("http://127.0.0.1:8000/agents/")
+            .then(res => res.json())
+            .then(data => {
+                setAgents(data);
+                if (data.length > 0) setSelectedAgentId(data[0].id);
+            })
+            .catch(err => console.error("Failed to fetch agents:", err));
+    }, []);
 
     // ... (StatusIndicator remains same)
     const StatusIndicator = () => {
@@ -156,7 +176,8 @@ export default function ConsolePage() {
                                     body: JSON.stringify({
                                         history: newHistory,
                                         latest_transcript: finalText,
-                                        metadata: { latency }
+                                        metadata: { latency },
+                                        agent_id: selectedAgentId
                                     })
                                 });
 
@@ -272,82 +293,74 @@ export default function ConsolePage() {
     };
 
     return (
-        <div className="min-h-screen bg-neutral-950 text-neutral-200 p-8 font-mono">
-            <header className="mb-8 flex items-center justify-between border-b border-neutral-800 pb-4">
-                <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-emerald-500" />
-                    ORICALO Console
-                </h1>
-                <div className="flex gap-6 items-center">
-                    <StatusIndicator />
-                    <div className="flex gap-4 text-sm text-neutral-500">
-                        <span>STATUS: {isRecording ? "LIVE" : "IDLE"}</span>
+        <div className="h-[calc(100vh-100px)] flex flex-col gap-6">
+            <header className="flex items-center justify-between border-b border-neutral-800 pb-6">
+                <div>
+                    <h1 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
+                        <Terminal className="w-5 h-5 text-neutral-400" />
+                        Live Console
+                    </h1>
+                    <div className="flex gap-4 text-xs font-mono text-neutral-500 mt-2">
+                        <span className="flex items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${isRecording ? "bg-emerald-500 animate-pulse" : "bg-neutral-600"}`} />
+                            {isRecording ? "SESSION ACTIVE" : "IDLE"}
+                        </span>
                         <span>LATENCY: {latency}ms</span>
                     </div>
                 </div>
+
+                <div className="flex gap-4 items-center">
+                    <StatusIndicator />
+
+                    {/* Agent Selector */}
+                    <select
+                        className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-sm rounded-md px-3 py-1.5 focus:border-neutral-600 outline-none hover:bg-neutral-800 transition-colors"
+                        value={selectedAgentId ?? ""}
+                        onChange={(e) => setSelectedAgentId(Number(e.target.value))}
+                        disabled={isRecording}
+                    >
+                        {agents.map(agent => (
+                            <option key={agent.id} value={agent.id}>
+                                {agent.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={isRecording ? stopRecording : startRecording}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${isRecording
+                            ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50"
+                            : "bg-white text-black hover:bg-neutral-200 border border-transparent"
+                            }`}
+                    >
+                        {isRecording ? (
+                            <>
+                                <Square className="w-4 h-4" /> Stop
+                            </>
+                        ) : (
+                            <>
+                                <Mic className="w-4 h-4" /> Start Session
+                            </>
+                        )}
+                    </button>
+                </div>
             </header>
 
-            <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Controls & Viz */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 backdrop-blur-sm">
-                        <h2 className="text-sm font-semibold text-neutral-400 mb-4 uppercase tracking-wider">
-                            Control Deck
-                        </h2>
-                        <button
-                            onClick={isRecording ? stopRecording : startRecording}
-                            className={`w-full py-4 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${isRecording
-                                ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50"
-                                : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/50"
-                                }`}
-                        >
-                            {isRecording ? (
-                                <>
-                                    <Square className="w-5 h-5" /> STOP SESSION
-                                </>
-                            ) : (
-                                <>
-                                    <Mic className="w-5 h-5" /> INITIALIZE AGENT
-                                </>
-                            )}
-                        </button>
-
-                        {/* Model Status Card */}
-                        <div className={`mt-4 p-3 rounded-lg border ${modelStatus === 'ready' ? 'bg-emerald-500/10 border-emerald-500/30' :
-                            modelStatus === 'loading' ? 'bg-yellow-500/10 border-yellow-500/30' :
-                                modelStatus === 'error' ? 'bg-red-500/10 border-red-500/30' :
-                                    'bg-neutral-800/50 border-neutral-700'
-                            }`}>
-                            <div className="text-xs text-neutral-400 mb-1">ASR Model Status</div>
-                            <div className={`text-sm font-medium ${modelStatus === 'ready' ? 'text-emerald-400' :
-                                modelStatus === 'loading' ? 'text-yellow-400' :
-                                    modelStatus === 'error' ? 'text-red-400' :
-                                        'text-neutral-300'
-                                }`}>
-                                {statusMessage}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6 h-64 flex items-center justify-center relative overflow-hidden">
-                        <WaveformVisualizer analyser={analyser} isRecording={isRecording} />
-                    </div>
-                </div>
-
+            <main className="flex-1 grid grid-cols-12 gap-6 min-h-0">
                 {/* Transcript Terminal */}
-                <div className="lg:col-span-2 bg-black border border-neutral-800 rounded-xl p-6 font-mono text-sm h-[600px] overflow-y-auto shadow-2xl">
-                    <div className="flex items-center gap-2 text-neutral-500 mb-4 border-b border-neutral-900 pb-2">
-                        <Terminal className="w-4 h-4" />
-                        <span>/var/log/transcript.log</span>
+                <div className="col-span-12 lg:col-span-8 bg-black border border-neutral-800 rounded-lg flex flex-col overflow-hidden shadow-sm">
+                    <div className="bg-neutral-900 border-b border-neutral-800 px-4 py-2 flex items-center justify-between">
+                        <span className="text-xs font-mono text-neutral-400">/var/log/transcript.log</span>
+                        <span className="text-[10px] bg-neutral-800 text-neutral-500 px-1.5 py-0.5 rounded">TAIL -F</span>
                     </div>
-                    <div className="space-y-2">
+                    <div className="flex-1 p-6 font-mono text-sm overflow-y-auto space-y-2">
                         {transcript.map((line, i) => (
-                            <div key={i} className="break-words">
-                                <span className="text-neutral-600 mr-2">
-                                    [{new Date().toLocaleTimeString()}]
+                            <div key={i} className="break-words flex gap-3">
+                                <span className="text-neutral-600 shrink-0 select-none">
+                                    {new Date().toLocaleTimeString()}
                                 </span>
                                 <span className={
-                                    line.startsWith("System:") ? "text-yellow-500" :
+                                    line.startsWith("System:") ? "text-yellow-600" :
                                         line.startsWith("🎙️") ? "text-blue-400" :
                                             line.startsWith("🤖") ? "text-emerald-400" :
                                                 "text-neutral-300"
@@ -364,9 +377,24 @@ export default function ConsolePage() {
                     </div>
                 </div>
 
-                {/* Agent Reply Panel & Visuals */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Visual Widget Area */}
+                {/* Right Panel: Viz & Agent Reply */}
+                <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+
+                    {/* Visualizer Card */}
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 h-48 flex items-center justify-center relative overflow-hidden">
+                        <WaveformVisualizer analyser={analyser} isRecording={isRecording} />
+                        <div className="absolute top-3 left-3 text-xs font-mono text-neutral-500">AUDIO_STREAM_MONITOR</div>
+                    </div>
+
+                    {/* Agent Reply */}
+                    <div className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg p-6 flex flex-col">
+                        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">Latest Response</h2>
+                        <div className="text-neutral-200 whitespace-pre-wrap break-words leading-relaxed font-mono text-sm">
+                            {agentReply ?? <span className="text-neutral-700 italic">No output generated yet.</span>}
+                        </div>
+                    </div>
+
+                    {/* Widget Area */}
                     {activeWidget && widgetData && (
                         <div className="animate-in fade-in slide-in-from-top-4 duration-500">
                             {activeWidget === 'price' && (
@@ -381,13 +409,6 @@ export default function ConsolePage() {
                             )}
                         </div>
                     )}
-
-                    <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-6">
-                        <h2 className="text-sm font-semibold text-neutral-400 mb-3 uppercase tracking-wider">Agent Reply</h2>
-                        <div className="text-neutral-200 whitespace-pre-wrap break-words min-h-10">
-                            {agentReply ?? "No reply yet."}
-                        </div>
-                    </div>
                 </div>
             </main>
         </div>

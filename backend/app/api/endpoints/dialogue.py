@@ -8,9 +8,14 @@ import os
 import json
 import re
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from app.db.session import get_db
+from app.db_tables.agent import Agent
 
 load_dotenv()
 
@@ -53,6 +58,7 @@ class DialogueStepRequest(BaseModel):
     history: List[DialogueTurn]
     latest_transcript: str
     metadata: Optional[Dict[str, Any]] = None
+    agent_id: Optional[int] = None
 
 
 class DialogueAction(BaseModel):
@@ -210,7 +216,7 @@ def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]
 # ============================================================================
 
 @router.post("/dialogue/step", response_model=DialogueStepResponse)
-async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
+async def dialogue_step(payload: DialogueStepRequest, db: AsyncSession = Depends(get_db)) -> DialogueStepResponse:
     """
     Process dialogue step with LLM + RAG.
     
@@ -262,7 +268,16 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
             
             # Build context for LLM
             context = rag_context if rag_context else None
-            reply = llm.generate_response(transcript, context=context)
+            
+            # Fetch agent system prompt if agent_id provided
+            system_prompt = None
+            if payload.agent_id:
+                result = await db.execute(select(Agent).filter(Agent.id == payload.agent_id))
+                agent = result.scalars().first()
+                if agent:
+                    system_prompt = agent.system_prompt
+            
+            reply = llm.generate_response(transcript, context=context, system_prompt=system_prompt)
         except Exception as e:
             reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
     else:
