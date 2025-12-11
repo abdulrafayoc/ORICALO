@@ -43,9 +43,12 @@ _env_backend = os.getenv("LLM_BACKEND", "").lower()
 _env_model_type = os.getenv("LLM_MODEL_TYPE", "").lower()
 _env_model_id = os.getenv("LLM_MODEL_ID", "mradermacher/Lughaat-1.0-8B-Instruct-GGUF")
 
+# 5. LLM_CHAT_FORMAT
+_env_chat_format = os.getenv("LLM_CHAT_FORMAT", None)
+
 if _env_model_type:
     DEFAULT_MODEL_TYPE = _env_model_type
-elif "gguf" in _env_model_id.lower() or "lughaat" in _env_model_id.lower():
+elif "gguf" in _env_model_id.lower():
     DEFAULT_MODEL_TYPE = "llama"
 elif _env_backend == "llama":
     DEFAULT_MODEL_TYPE = "llama"
@@ -53,6 +56,7 @@ else:
     DEFAULT_MODEL_TYPE = "transformers"
 
 DEFAULT_MODEL_ID = _env_model_id
+DEFAULT_CHAT_FORMAT = _env_chat_format
 
 # System prompt for Urdu real estate agent persona
 SYSTEM_PROMPT = """
@@ -83,6 +87,7 @@ class HuggingFaceChatbot:
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_new_tokens: int = 256,
+        chat_format: Optional[str] = DEFAULT_CHAT_FORMAT,
         # Transformers specific
         load_in_8bit: bool = False,
         load_in_4bit: bool = True,
@@ -96,6 +101,7 @@ class HuggingFaceChatbot:
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.device = device
+        self.chat_format = chat_format
         
         # Conversation history
         self.messages: List[Dict[str, str]] = []
@@ -163,6 +169,7 @@ class HuggingFaceChatbot:
             raise RuntimeError("llama-cpp-python not installed. Run: pip install llama-cpp-python")
         
         print(f"[LLM] Loading Llama.cpp model: {self.model_id}")
+        print(f"[LLM] Chat format: {self.chat_format}")
         
         # If model_id looks like a repo ID (contains '/'), use from_pretrained
         if "/" in self.model_id and not os.path.exists(self.model_id):
@@ -188,7 +195,7 @@ class HuggingFaceChatbot:
                         filename=fname,
                         n_ctx=n_ctx,
                         n_gpu_layers=n_gpu_layers,
-                        chat_format="llama-3",
+                        chat_format=self.chat_format,
                         verbose=True
                     )
                     model_loaded = True
@@ -214,7 +221,7 @@ class HuggingFaceChatbot:
                 model_path=self.model_id,
                 n_ctx=n_ctx,
                 n_gpu_layers=n_gpu_layers,
-                chat_format="llama-3",
+                chat_format=self.chat_format,
                 verbose=True
             )
             
@@ -300,22 +307,26 @@ class HuggingFaceChatbot:
         # Llama-cpp-python handles chat templates internally usually, or we can use the messages API
         # It has a create_chat_completion method compatible with OpenAI API
         
-        response_iter = self.llama_model.create_chat_completion(
-            messages=messages,
-            max_tokens=self.max_new_tokens,
-            temperature=self.temperature,
-            stream=True
-        )
-        
-        accumulated_text = ""
-        for chunk in response_iter:
-            delta = chunk["choices"][0]["delta"]
-            if "content" in delta:
-                text_chunk = delta["content"]
-                accumulated_text += text_chunk
-                yield text_chunk
-                
-        self._update_history(user_input, accumulated_text)
+        try:
+            response_iter = self.llama_model.create_chat_completion(
+                messages=messages,
+                max_tokens=self.max_new_tokens,
+                temperature=self.temperature,
+                stream=True
+            )
+            
+            accumulated_text = ""
+            for chunk in response_iter:
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    text_chunk = delta["content"]
+                    accumulated_text += text_chunk
+                    yield text_chunk
+                    
+            self._update_history(user_input, accumulated_text)
+        except Exception as e:
+            print(f"Error during Llama generation: {e}")
+            yield f"[Error] {str(e)}"
 
     def _update_history(self, user_input: str, response: str):
         self.messages.append({"role": "user", "content": user_input})
@@ -331,6 +342,21 @@ class HuggingFaceChatbot:
             if role == "agent": role = "assistant"
             self.messages.append({"role": role, "content": turn.get("text", "")})
 
+    def close(self):
+        """Explicitly release resources."""
+        if self.llama_model:
+            print("[LLM] Closing Llama model...")
+            # llama-cpp-python objects usually clean up on GC, but explicit cleanup can help
+            # Note: The 'Llama' class object handles __del__, but we can try to force it or clear it.
+            # There isn't a documented .close() in all versions, but deleting it is the standard way.
+            del self.llama_model
+            self.llama_model = None
+        if self.transformers_model:
+            del self.transformers_model
+            self.transformers_model = None
+            if torch and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
 
 def create_huggingface_chatbot(**kwargs) -> HuggingFaceChatbot:
     """Factory function."""
@@ -340,6 +366,7 @@ def create_huggingface_chatbot(**kwargs) -> HuggingFaceChatbot:
 if __name__ == "__main__":
     # Test block
     print("Testing HuggingFace chatbot...")
+    bot = None
     try:
         # Default loads whatever is configured in DEFAULT_MODEL_TYPE/ID
         bot = HuggingFaceChatbot() 
@@ -347,9 +374,13 @@ if __name__ == "__main__":
         
         print("Streamed response:")
         full_resp = ""
-        for chunk in bot.generate_response_stream("mujhe DHA Lahore mein 10 marla ghar chahiye"):
+        for chunk in bot.generate_response_stream("کیا آپ کو مری آواز آ رہی ہے؟"):
             print(chunk, end="", flush=True)
             full_resp += chunk
         print("\nDone.")
     except Exception as e:
         print(f"Error: {e}")
+    finally:
+        if bot:
+            print("Cleaning up...")
+            bot.close()

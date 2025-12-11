@@ -359,12 +359,11 @@ export default function ConsolePage() {
                                 <span className="text-neutral-600 shrink-0 select-none">
                                     {new Date().toLocaleTimeString()}
                                 </span>
-                                <span className={
-                                    line.startsWith("System:") ? "text-yellow-600" :
+                                <span className={`font-urdu ${line.startsWith("System:") ? "text-yellow-600" :
                                         line.startsWith("🎙️") ? "text-blue-400" :
                                             line.startsWith("🤖") ? "text-emerald-400" :
                                                 "text-neutral-300"
-                                }>
+                                    }`}>
                                     {line}
                                 </span>
                             </div>
@@ -389,7 +388,7 @@ export default function ConsolePage() {
                     {/* Agent Reply */}
                     <div className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg p-6 flex flex-col">
                         <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">Latest Response</h2>
-                        <div className="text-neutral-200 whitespace-pre-wrap break-words leading-relaxed font-mono text-sm">
+                        <div className="text-neutral-200 whitespace-pre-wrap break-words leading-relaxed font-urdu">
                             {agentReply ?? <span className="text-neutral-700 italic">No output generated yet.</span>}
                         </div>
                     </div>
