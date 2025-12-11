@@ -7,8 +7,10 @@ from typing import List, Optional, Dict, Any
 import os
 import json
 import re
+import pandas as pd
 
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -178,8 +180,33 @@ def _get_rag_context(query: str, top_k: int = 3) -> str:
 
 
 def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]:
-    """Get price estimate for location."""
-    # Simple heuristic if model not available
+    """Get price estimate via ML model or fallback."""
+    # Try using ML model first
+    if PRICE_MODEL_AVAILABLE and get_price_model:
+        model = get_price_model()
+        if model:
+            try:
+                area_sqft = _to_sqft(area_marla, location)
+                # Default features for prediction since we don't extract them yet
+                input_data = pd.DataFrame([{
+                    "City": "Lahore",
+                    "Property Type": "House",
+                    "Bedrooms": 3,
+                    "Baths": 3,
+                    "Area_SqFt": area_sqft
+                }])
+                
+                prediction = float(model.predict(input_data)[0])
+                return {
+                    "min_price": int(prediction * 0.9),
+                    "max_price": int(prediction * 1.1),
+                    "confidence": 0.85,
+                    "currency": "PKR"
+                }
+            except Exception as e:
+                print(f"[Price] ML prediction failed: {e}")
+
+    # Fallback heuristic if model not available
     base_prices = {
         "dha": 350,  # lakh per marla
         "bahria": 180,
@@ -209,15 +236,11 @@ def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]
 # API Endpoints
 # ============================================================================
 
-@router.post("/dialogue/step", response_model=DialogueStepResponse)
-async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
+@router.post("/dialogue/step")
+async def dialogue_step(payload: DialogueStepRequest):
     """
-    Process dialogue step with LLM + RAG.
-    
-    1. Detect user intent from transcript
-    2. If property-related, fetch RAG context
-    3. Generate LLM response with context
-    4. Add actions for price/listing widgets
+    Process dialogue step with LLM + RAG, streaming the response.
+    Returns a stream of JSON lines (NDJSON).
     """
     transcript = payload.latest_transcript
     intent = _detect_intent(transcript)
@@ -250,31 +273,49 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
         price_data = _get_price_estimate(location)
         actions.append(DialogueAction(type="show_price", payload=price_data))
     
-    # Generate LLM response
-    llm = _get_llm()
-    if llm:
-        try:
-            # Set conversation history
-            # User requested short term memory of at least 6 turns.
-            recent_history = payload.history[-12:] 
-            history = [{"role": t.role, "text": t.text} for t in recent_history]
-            llm.set_history(history)
-            
-            # Build context for LLM
-            context = rag_context if rag_context else None
-            reply = llm.generate_response(transcript, context=context)
-        except Exception as e:
-            reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
-    else:
-        # Fallback if LLM not available
-        if intent["wants_search"]:
-            reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
-        elif intent["wants_price"]:
-            reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
+    async def generate_response_stream():
+        # 1. Send actions immediately if any
+        if actions:
+            actions_data = [a.dict() for a in actions]
+            yield json.dumps({"type": "actions", "data": actions_data}) + "\n"
+
+        # 2. Generate and stream LLM response
+        llm = _get_llm()
+        reply_buffer = ""
+        
+        if llm:
+            try:
+                # Set conversation history
+                recent_history = payload.history[-12:] 
+                history_dicts = [{"role": t.role, "text": t.text} for t in recent_history]
+                llm.set_history(history_dicts)
+                
+                # Build context for LLM
+                context = rag_context if rag_context else None
+                print(f"[LLM-INPUT] Transcript: {transcript}")
+                
+                # Stream tokens
+                for token in llm.generate_response_stream(transcript, context=context):
+                    yield json.dumps({"type": "token", "text": token}) + "\n"
+                    reply_buffer += token
+                    
+                print(f"[LLM-OUTPUT] {reply_buffer}")
+                
+            except Exception as e:
+                err_msg = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
+                yield json.dumps({"type": "token", "text": err_msg}) + "\n"
         else:
-            reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
-    
-    return DialogueStepResponse(reply=reply, actions=actions)
+            # Fallback if LLM not available
+            if intent["wants_search"]:
+                fallback_reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
+            elif intent["wants_price"]:
+                fallback_reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
+            else:
+                fallback_reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
+            
+            yield json.dumps({"type": "token", "text": fallback_reply}) + "\n"
+            
+    return StreamingResponse(generate_response_stream(), media_type="application/x-ndjson")
 
 
 @router.post("/rag/query", response_model=RagQueryResponse)

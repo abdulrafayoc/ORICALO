@@ -28,7 +28,11 @@ class ValuationResponse(BaseModel):
     confidence: float
 
 
-_MODEL_PATH = Path(os.getenv("PRICE_MODEL_PATH", "models/price_predictor.pkl"))
+# Resolve absolute path to models directory
+# Current file: custom/backend/app/api/endpoints/valuation.py
+# Root: custom/backend
+BASE_DIR = Path(__file__).resolve().parents[3]
+_MODEL_PATH = BASE_DIR / "models" / "price_predictor.pkl"
 _model = None
 
 
@@ -43,8 +47,17 @@ def _to_sqft(marla: Optional[float], location: Optional[str]) -> Optional[float]
 
 def _get_model():
     global _model
-    if _model is None and _MODEL_PATH.exists():
-        _model = joblib.load(_MODEL_PATH).get("pipeline")
+    if _model is None:
+        if not _MODEL_PATH.exists():
+            print(f"[PriceModel] Error: Model file not found at {_MODEL_PATH}")
+            return None
+        try:
+            print(f"[PriceModel] Loading model from {_MODEL_PATH}...")
+            _model = joblib.load(_MODEL_PATH).get("pipeline")
+            print("[PriceModel] Model loaded successfully.")
+        except Exception as e:
+            print(f"[PriceModel] Failed to load model: {e}")
+            return None
     return _model
 
 
@@ -58,6 +71,7 @@ async def valuation_predict(payload: ValuationRequest) -> ValuationResponse:
         area_sqft = payload.area_sqft
 
     if model is None:
+        print("[PriceModel] Warning: Using fallback hardcoded logic.")
         price = 1_00_00_000.0
         if area_sqft:
             price = max(25_00_000.0, area_sqft * 12_000.0)

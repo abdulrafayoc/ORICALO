@@ -41,11 +41,11 @@ except ImportError:
 
 _env_backend = os.getenv("LLM_BACKEND", "").lower()
 _env_model_type = os.getenv("LLM_MODEL_TYPE", "").lower()
-_env_model_id = os.getenv("LLM_MODEL_ID", "mradermacher/Lughaat-1.0-8B-Instruct-GGUF")
+_env_model_id = os.getenv("LLM_MODEL_ID", "animaRegem/gemma-2b-malayalam-t2-gguf")
 
 if _env_model_type:
     DEFAULT_MODEL_TYPE = _env_model_type
-elif "gguf" in _env_model_id.lower() or "lughaat" in _env_model_id.lower():
+elif "gguf" in _env_model_id.lower() or "lughaat" in _env_model_id.lower() or "gemma" in _env_model_id.lower():
     DEFAULT_MODEL_TYPE = "llama"
 elif _env_backend == "llama":
     DEFAULT_MODEL_TYPE = "llama"
@@ -171,8 +171,9 @@ class HuggingFaceChatbot:
             specified_filename = os.getenv("LLM_MODEL_FILENAME")
             
             filenames_to_try = [specified_filename] if specified_filename else [
-                "*Q4_K_M.gguf", 
+                "gemma-2b-malayalam-t2-gguf-unsloth.Q5_K_M.gguf",
                 "*Q5_K_M.gguf",
+                "*Q4_K_M.gguf", 
                 "*Q8_0.gguf",
                 "*.gguf"
             ]
@@ -188,7 +189,7 @@ class HuggingFaceChatbot:
                         filename=fname,
                         n_ctx=n_ctx,
                         n_gpu_layers=n_gpu_layers,
-                        chat_format="llama-3",
+                        # chat_format="llama-3", # Removed for auto-detection
                         verbose=True
                     )
                     model_loaded = True
@@ -214,11 +215,11 @@ class HuggingFaceChatbot:
                 model_path=self.model_id,
                 n_ctx=n_ctx,
                 n_gpu_layers=n_gpu_layers,
-                chat_format="llama-3",
+                # chat_format="llama-3", # Removed for auto-detection
                 verbose=True
             )
             
-        print("[LLM] Llama model loaded.")
+        print(f"[LLM] Llama model loaded. Layers on GPU: {n_gpu_layers} ( -1 means all).")
     
     def _build_messages(self, user_input: str, context: Optional[str] = None) -> List[Dict[str, str]]:
         messages = [{"role": "system", "content": self.system_prompt}]
@@ -300,11 +301,20 @@ class HuggingFaceChatbot:
         # Llama-cpp-python handles chat templates internally usually, or we can use the messages API
         # It has a create_chat_completion method compatible with OpenAI API
         
+        print(f"[LLM] Generating with params: temp={self.temperature}, max_tokens={self.max_new_tokens}")
+        
+        # Common stop sequences to prevent hallucination of new turns
+        stop_sequences = ["</s>", "<s>", "[/INST]", "[INST]", "User:", "Agent:", "<|endoftext|>", "<end_of_turn>"]
+        
         response_iter = self.llama_model.create_chat_completion(
             messages=messages,
             max_tokens=self.max_new_tokens,
             temperature=self.temperature,
-            stream=True
+            top_p=0.9,
+            frequency_penalty=1.1,  # Penalize repetition
+            presence_penalty=1.1,
+            stream=True,
+            stop=stop_sequences
         )
         
         accumulated_text = ""
@@ -312,6 +322,11 @@ class HuggingFaceChatbot:
             delta = chunk["choices"][0]["delta"]
             if "content" in delta:
                 text_chunk = delta["content"]
+                
+                # Basic output cleaning to prevent tag leakage
+                if any(tag in text_chunk for tag in ["<s>", "[INST]", "</s>"]):
+                    continue
+                    
                 accumulated_text += text_chunk
                 yield text_chunk
                 
