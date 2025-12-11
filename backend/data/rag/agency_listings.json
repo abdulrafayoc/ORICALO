@@ -1,0 +1,93 @@
+[
+    {
+        "id": "ag-001",
+        "title": "Modern 1 Kanal Luxury Villa in DHA Phase 6",
+        "description": "Exquisite 1 Kanal designer house featuring 5 master bedrooms, imported fittings, Italian kitchen, swimming pool, and lush green lawn. Located in a prime block near the main boulevard.",
+        "price": "PKR 8.5 Crore",
+        "location": "DHA Phase 6, Lahore",
+        "city": "Lahore",
+        "type": "House",
+        "bedrooms": 5,
+        "baths": 6,
+        "area": "1 Kanal",
+        "features": [
+            "Swimming Pool",
+            "Servant Quarter",
+            "Double Kitchen",
+            "Corner Plot"
+        ],
+        "agent_notes": "Owner migrating, urgent sale. Price slightly negotiable."
+    },
+    {
+        "id": "ag-002",
+        "title": "Brand New 10 Marla House in Bahria Town Sector C",
+        "description": "Solidly constructed 10 Marla double unit house. 4 bedrooms with attached baths. Tiled flooring, solid wood work. Close to mosque and park.",
+        "price": "PKR 4.2 Crore",
+        "location": "Bahria Town Sector C, Lahore",
+        "city": "Lahore",
+        "type": "House",
+        "bedrooms": 4,
+        "baths": 5,
+        "area": "10 Marla",
+        "features": [
+            "Double Unit",
+            "Near Park",
+            "Gas Available"
+        ],
+        "agent_notes": "Best for rental income."
+    },
+    {
+        "id": "ag-003",
+        "title": "Prime 2 Kanal Residential Plot in DHA Phase 8",
+        "description": "Golden investment opportunity. 2 Kanal possession plot in Park View block. Direct approach from ring road.",
+        "price": "PKR 12 Crore",
+        "location": "DHA Phase 8, Lahore",
+        "city": "Lahore",
+        "type": "Plot",
+        "bedrooms": 0,
+        "baths": 0,
+        "area": "2 Kanal",
+        "features": [
+            "Possession",
+            "Park View",
+            "Investment Grade"
+        ],
+        "agent_notes": "Balloted plot, ready for construction."
+    },
+    {
+        "id": "ag-004",
+        "title": "Luxury Apartment in Goldcrest Mall",
+        "description": "2 Bedroom furnished apartment on 10th floor. Panoramic view of the city. High-end finishes, central air conditioning, and gym access.",
+        "price": "PKR 2.8 Crore",
+        "location": "DHA Phase 4, Lahore",
+        "city": "Lahore",
+        "type": "Flat",
+        "bedrooms": 2,
+        "baths": 2,
+        "area": "1200 Sqft",
+        "features": [
+            "Furnished",
+            "Gym",
+            "Mall Access",
+            "Security"
+        ],
+        "agent_notes": "Currently rented at 1.5 Lakh/month."
+    },
+    {
+        "id": "ag-005",
+        "title": "Affordable 5 Marla House in Lake City",
+        "description": "Beautiful 5 Marla house M-7 sector. 3 bedrooms, modern elevation. Gated community with 24/7 electricity.",
+        "price": "PKR 2.1 Crore",
+        "location": "Lake City, Lahore",
+        "city": "Lahore",
+        "type": "House",
+        "bedrooms": 3,
+        "baths": 3,
+        "area": "5 Marla",
+        "features": [
+            "Gated Community",
+            "No Load Shedding"
+        ],
+        "agent_notes": "Good startup home."
+    }
+]

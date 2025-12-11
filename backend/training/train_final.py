@@ -47,7 +47,7 @@ def clean_data(input_df):
     # Drop rows without Price or Area
     df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
     df = df.dropna(subset=['Price', 'Area_SqFt'])
-    df = df[(df['Price'] > 2_000_000) & (df['Area_SqFt'] > 100)] # Filter out rentals (< 20 Lakh)
+    df = df[(df['Price'] > 100000) & (df['Area_SqFt'] > 100)] # Basic sanity check
     
     # 2.3 Handle Location
     # Fill location with City if missing

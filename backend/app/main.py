@@ -19,12 +19,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api.endpoints import stt, dialogue, valuation, agents
+from app.api.endpoints import stt, dialogue, valuation, agents, agency
 
 app.include_router(stt.router)
 app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)
+app.include_router(agency.router)
 
 @app.get("/")
 async def root():

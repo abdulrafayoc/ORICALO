@@ -1,5 +1,10 @@
 import asyncio
 from logging.config import fileConfig
+import sys
+import os
+
+sys.path.append(os.getcwd())
+
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -9,7 +14,8 @@ from alembic import context
 
 # target metadata
 from app.db.base import Base
-from app.db_tables.agent import Agent # Import models to register them
+from app.db_tables.agent import Agent 
+from app.db_tables.listing import Listing
 target_metadata = Base.metadata
 
 # config

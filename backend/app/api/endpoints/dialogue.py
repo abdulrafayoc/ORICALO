@@ -341,3 +341,41 @@ async def price_predict(payload: PricePredictionRequest) -> PricePredictionRespo
         max_price_lakh=price_data["max_price"] / 100000,
         confidence=price_data["confidence"],
     )
+
+
+@router.get("/rag/stats")
+async def rag_stats():
+    """Return statistics about the RAG vector store."""
+    try:
+        from rag import vector_store
+        stats = vector_store.get_collection_stats()
+        
+        # Get file stats if possible
+        full_doc_count = 0
+        last_updated = "N/A"
+        processed_file = Path("data/processed/rag_corpus.jsonl")
+        
+        if processed_file.exists():
+            import datetime
+            ts = processed_file.stat().st_mtime
+            last_updated = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Simple line count for jsonl
+            # full_doc_count = sum(1 for _ in open(processed_file, 'r', encoding='utf-8'))
+    except Exception as e:
+        return {
+            "total_documents": 0,
+            "dimension": 0,
+            "last_updated": "Error",
+            "error": str(e)
+        }
+
+    return {
+        "total_documents": stats.get("count", 0),
+        "dimension": 384, # Default for paraphrase-multilingual-MiniLM-L12-v2
+        "last_updated": last_updated,
+        "recent_files": [
+            "zameen-com-dataset.csv", # Assuming this is the source
+            "rag_corpus.jsonl"
+        ]
+    }

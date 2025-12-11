@@ -8,14 +8,18 @@ import {
     Terminal,
     Settings,
     Video,
-    FileText
+    FileText,
+    Search,
+    Calculator
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
     { name: "Agents", href: "/agents", icon: Bot },
-    { name: "Console", href: "/console", icon: Terminal },
+    { name: "Live Console", href: "/console", icon: Terminal },
+    { name: "RAG Search", href: "/rag", icon: Search },
+    { name: "Price Prediction", href: "/avm", icon: Calculator },
     { name: "Recordings", href: "/recordings", icon: Video },
     { name: "Logs", href: "/logs", icon: FileText },
     { name: "Settings", href: "/settings", icon: Settings },
