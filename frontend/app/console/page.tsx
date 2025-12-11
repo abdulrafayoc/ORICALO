@@ -170,6 +170,8 @@ export default function ConsolePage() {
                         (async () => {
                             try {
                                 setTranscript((prev) => [...prev, "System: 🤔 Processing with LLM..."]);
+                                setAgentReply(""); // Clear previous reply
+
                                 const res = await fetch("http://127.0.0.1:8000/dialogue/step", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
@@ -181,12 +183,14 @@ export default function ConsolePage() {
                                     })
                                 });
 
-                                if (!res.body) throw new Error("No response body");
+                                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                
+                                const reader = res.body?.getReader();
+                                if (!reader) throw new Error("No readable stream");
 
-                                const reader = res.body.getReader();
                                 const decoder = new TextDecoder();
                                 let buffer = "";
-                                let currentReply = "";
+                                let fullReply = "";
 
                                 while (true) {
                                     const { done, value } = await reader.read();
@@ -194,45 +198,45 @@ export default function ConsolePage() {
 
                                     buffer += decoder.decode(value, { stream: true });
                                     const lines = buffer.split("\n");
-                                    buffer = lines.pop() || ""; // Keep last partial line
+                                    buffer = lines.pop() || ""; // Keep incomplete line
 
                                     for (const line of lines) {
                                         if (!line.trim()) continue;
                                         try {
-                                            const event = JSON.parse(line);
-
-                                            if (event.type === "token") {
-                                                currentReply += event.content;
-                                                setAgentReply(currentReply);
-                                                // Update history dynamically if needed, or at end
-                                            } else if (event.type === "action") {
-                                                const action = event.data;
-                                                if (action.type === "show_price") {
-                                                    setActiveWidget("price");
-                                                    setWidgetData(action.payload);
-                                                    setTranscript((prev) => [...prev, "System: 📊 Showing price estimation"]);
-                                                } else if (action.type === "show_listings") {
-                                                    setActiveWidget("rag");
-                                                    setWidgetData(action.payload);
-                                                    setTranscript((prev) => [...prev, "System: 🏠 Showing property listings"]);
+                                            const data = JSON.parse(line);
+                                            
+                                            if (data.type === "token") {
+                                                const token = data.text || "";
+                                                fullReply += token;
+                                                setAgentReply((prev) => (prev || "") + token);
+                                            } else if (data.type === "actions") {
+                                                const actions = data.data || [];
+                                                for (const action of actions) {
+                                                    if (action.type === "show_price") {
+                                                        setActiveWidget("price");
+                                                        setWidgetData(action.payload);
+                                                        setTranscript((prev) => [...prev, "System: 📊 Showing price estimation"]);
+                                                    } else if (action.type === "show_listings") {
+                                                        setActiveWidget("rag");
+                                                        setWidgetData(action.payload);
+                                                        setTranscript((prev) => [...prev, "System: 🏠 Showing property listings"]);
+                                                    }
                                                 }
-                                            } else if (event.type === "error") {
-                                                console.error("Stream error:", event.message);
-                                                setTranscript((prev) => [...prev, `System: ❌ ${event.message}`]);
                                             }
-                                        } catch (e) {
-                                            console.warn("Failed to parse line:", line);
+                                        } catch (parseError) {
+                                            console.warn("Error parsing stream line:", line, parseError);
                                         }
                                     }
                                 }
 
-                                // Finalize history
-                                if (currentReply) {
-                                    setHistory((prev) => [...prev, { role: "agent", text: currentReply }]);
-                                    setTranscript((prev) => [...prev, `🤖 Agent: ${currentReply}`]);
+                                // Update history and transcript with full reply
+                                if (fullReply) {
+                                    setHistory((prev) => [...prev, { role: "agent", text: fullReply }]);
+                                    setTranscript((prev) => [...prev, `🤖 Agent: ${fullReply}`]);
                                 }
 
                             } catch (e) {
+                                console.error("LLM request failed:", e);
                                 setAgentReply("[Error] Failed to fetch agent reply.");
                                 setTranscript((prev) => [...prev, "System: ❌ LLM request failed"]);
                             }

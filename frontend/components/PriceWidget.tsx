@@ -11,10 +11,13 @@ interface PriceWidgetProps {
 export default function PriceWidget({ minPrice, maxPrice, currency = "PKR", confidence }: PriceWidgetProps) {
     // Helper to format large numbers (Lakh/Crore)
     const formatPrice = (val: number) => {
-        if (val >= 100) {
-            return `${(val / 100).toFixed(2)} Cr`;
+        if (val >= 10000000) {
+            return `${(val / 10000000).toFixed(2)} Cr`;
         }
-        return `${val.toFixed(1)} Lakh`;
+        if (val >= 100000) {
+            return `${(val / 100000).toFixed(2)} Lakh`;
+        }
+        return val.toLocaleString();
     };
 
     return (

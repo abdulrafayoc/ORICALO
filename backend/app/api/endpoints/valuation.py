@@ -29,7 +29,11 @@ class ValuationResponse(BaseModel):
     confidence: float
 
 
-_MODEL_PATH = Path(os.getenv("PRICE_MODEL_PATH", "models/price_predictor.pkl"))
+# Resolve absolute path to models directory
+# Current file: custom/backend/app/api/endpoints/valuation.py
+# Root: custom/backend
+BASE_DIR = Path(__file__).resolve().parents[3]
+_MODEL_PATH = BASE_DIR / "models" / "price_predictor.pkl"
 _model = None
 _model_metadata = None
 
@@ -72,6 +76,7 @@ async def valuation_predict(payload: ValuationRequest) -> ValuationResponse:
         area_sqft = payload.area_sqft
 
     if model is None:
+        print("[PriceModel] Warning: Using fallback hardcoded logic.")
         price = 1_00_00_000.0
         if area_sqft:
             price = max(25_00_000.0, area_sqft * 12_000.0)
