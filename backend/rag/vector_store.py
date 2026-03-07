@@ -19,7 +19,7 @@ except Exception as e:  # pragma: no cover
 
 # Defaults
 _DEFAULT_PERSIST_DIR = os.getenv("RAG_CHROMA_DIR", "data/vector/chroma")
-_DEFAULT_COLLECTION = os.getenv("RAG_COLLECTION", "properties")
+_DEFAULT_COLLECTION = os.getenv("RAG_COLLECTION", "agency_portfolio")
 _DEFAULT_EMBED_MODEL = os.getenv(
     "RAG_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2"
 )
@@ -57,22 +57,34 @@ def get_collection(
 
 def _row_to_text(row: Dict[str, Any]) -> str:
     parts: List[str] = []
+    # Support for Agency Listings Schema
+    if "title" in row:
+        parts.append(f"Title: {row['title']}")
+    if "description" in row:
+        parts.append(f"Description: {row['description']}")
+    if "price" in row:
+        parts.append(f"Price: {row['price']}")
+    if "location" in row:
+        parts.append(f"Location: {row['location']}")
+    if "features" in row and isinstance(row["features"], list):
+        parts.append(f"Features: {', '.join(row['features'])}")
+    if "type" in row:
+        parts.append(f"Type: {row['type']}")
+    if "agent_notes" in row:
+        parts.append(f"Agent Notes: {row['agent_notes']}")
+
+    # Legacy Zameen Schema Support (Optional, can keep or remove)
     title = row.get("Short Desc") or row.get("title")
     long_desc = row.get("Long Desc") or row.get("full_description")
     location = row.get("Long Location") or row.get("Location")
     city = row.get("City")
     price_words = row.get("Price in words")
 
-    if title:
-        parts.append(str(title))
-    if long_desc and isinstance(long_desc, str):
-        parts.append(str(long_desc))
-    if location:
-        parts.append(f"Location: {location}")
-    if city:
-        parts.append(f"City: {city}")
-    if price_words:
-        parts.append(f"Listed at: {price_words}")
+    if title and "Title:" not in parts[-1] if parts else True: # simplistic check to avoid dupes if keys overlap
+         if title: parts.append(str(title))
+    if long_desc and isinstance(long_desc, str) and "Description:" not in parts[-1] if parts else True:
+         parts.append(str(long_desc))
+
 
     # Fallback if everything is empty
     if not parts:
@@ -81,21 +93,75 @@ def _row_to_text(row: Dict[str, Any]) -> str:
 
 
 def _row_to_metadata(row: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extract metadata from a row.
+    We just copy everything that isn't the main text or too large, 
+    so it's available in the frontend.
+    """
     md: Dict[str, Any] = {}
-    for k in [
-        "City",
-        "Province",
-        "Property Type",
-        "Location",
-        "Bedrooms",
-        "Baths",
-        "Price",
-        "Link",
-    ]:
-        if k in row and pd.notna(row[k]):
-            md[k.lower().replace(" ", "_")] = row[k]
+    
+    # keys we want to preserve in metadata
+    keys_to_keep = [
+        "id", "title", "price", "location", "city", "type", 
+        "bedrooms", "baths", "area", "features", "agent_notes", "created_at"
+    ]
+
+    for k in keys_to_keep:
+        if k in row and row[k] is not None:
+            # ChromaDB requires metadata values to be str, int, float, or bool
+            # It DOES NOT support lists directly in metadata usually (depending on version), 
+            # but newer versions might. To be safe/compatible, if it's a list, we join it.
+            val = row[k]
+            if isinstance(val, list):
+                val = ", ".join(str(v) for v in val)
+            
+            md[k] = val
+            
     return md
 
+
+def build_index_from_listings(
+    listings: List[Dict[str, Any]],
+    collection_name: str = _DEFAULT_COLLECTION,
+    batch_size: int = 512,
+) -> Tuple[int, str]:
+    """
+    Build or update a Chroma collection from a list of dictionaries.
+    """
+    client = get_client()
+    # Reset collection if needed? For now we just get_or_create.
+    # To truly 'replace', we might want to delete. But user said 'delete everything unnecessary', 
+    # so maybe we should delete the previous collection content or delete the collection entirely first.
+    # For safety in this refactoring, let's delete and recreate to ensure clean state.
+    try:
+        client.delete_collection(collection_name)
+    except Exception:
+        pass # Collection might not exist
+
+    col = get_collection(client, name=collection_name)
+
+    ids: List[str] = []
+    docs: List[str] = []
+    metas: List[Dict[str, Any]] = []
+
+    for i, row in enumerate(listings):
+        rid = str(row.get("id", f"ag-{i}"))
+        text = _row_to_text(row)
+        meta = _row_to_metadata(row)
+
+        ids.append(rid)
+        docs.append(text)
+        metas.append(meta)
+
+        if len(ids) >= batch_size:
+            col.add(ids=ids, documents=docs, metadatas=metas)
+            ids, docs, metas = [], [], []
+
+    if ids:
+        col.add(ids=ids, documents=docs, metadatas=metas)
+
+    count = col.count()
+    return count, collection_name
 
 def build_index_from_jsonl(
     corpus_path: str | Path = "data/processed/rag_corpus.jsonl",
@@ -103,52 +169,43 @@ def build_index_from_jsonl(
     id_field_candidates: Iterable[str] = ("Property_Id", "id", "ID"),
     batch_size: int = 512,
 ) -> Tuple[int, str]:
-    """
-    Build or update a Chroma collection from a JSONL corpus file.
-    Returns: (num_indexed, collection_name)
-    """
-    corpus_path = Path(corpus_path)
-    if not corpus_path.exists():
-        raise FileNotFoundError(f"Corpus file not found: {corpus_path}")
-
-    client = get_client()
-    col = get_collection(client, name=collection_name)
-
-    ids: List[str] = []
-    docs: List[str] = []
-    metas: List[Dict[str, Any]] = []
-
-    with corpus_path.open("r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
+    # Wrapper for legacy or file-based usage
+    path = Path(corpus_path)
+    if not path.exists():
+         raise FileNotFoundError(f"{path} not found")
+    
+    data = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
             try:
-                row = json.loads(line)
-            except Exception:
-                continue
+                data.append(json.loads(line))
+            except:
+                pass
+    return build_index_from_listings(data, collection_name, batch_size)
 
-            rid = None
-            for cand in id_field_candidates:
-                if cand in row and row[cand] is not None and str(row[cand]).strip():
-                    rid = str(row[cand])
-                    break
-            if rid is None:
-                rid = f"rec-{i}"
 
-            text = _row_to_text(row)
-            meta = _row_to_metadata(row)
-
-            ids.append(rid)
-            docs.append(text)
-            metas.append(meta)
-
-            if len(ids) >= batch_size:
-                col.add(ids=ids, documents=docs, metadatas=metas)
-                ids, docs, metas = [], [], []
-
-    if ids:
-        col.add(ids=ids, documents=docs, metadatas=metas)
-
-    count = col.count()
-    return count, collection_name
+def get_collection_stats(collection_name: str = _DEFAULT_COLLECTION) -> Dict[str, Any]:
+    """
+    Get statistics for the vector collection.
+    """
+    if chromadb is None:
+        return {"status": "error", "message": "ChromaDB not installed"}
+    
+    try:
+        client = get_client()
+        # check if collection exists
+        try:
+            col = client.get_collection(name=collection_name)
+        except Exception:
+            return {"count": 0, "status": "empty"}
+            
+        count = col.count()
+        return {
+            "count": count,
+            "status": "ready"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 def query(

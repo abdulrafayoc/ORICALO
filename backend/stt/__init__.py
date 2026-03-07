@@ -8,8 +8,17 @@ Core ASR functionality for Urdu language recognition with:
 - Silence detection
 - Telephony optimization (8kHz)
 """
+import os
 
-from .stt_hf import Ear_hf
+# Default backend
+DEFAULT_STT_BACKEND = os.getenv("STT_BACKEND", "local")
+
+if DEFAULT_STT_BACKEND.lower() in ("deepgram", "api"):
+    from .deepgram_stt import DeepgramSTT
+    Ear_hf = DeepgramSTT  # Fallback naming for compatibility
+else:
+    from .stt_hf import Ear_hf
+
 from .vad import OptimizedVAD
 from .utils import record_user, record_user_stream, record_interruption
 

@@ -7,12 +7,15 @@ from typing import List, Optional, Dict, Any
 import os
 import json
 import re
-import pandas as pd
 
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from app.db.session import get_db
+from app.db_tables.agent import Agent
 
 load_dotenv()
 
@@ -55,6 +58,7 @@ class DialogueStepRequest(BaseModel):
     history: List[DialogueTurn]
     latest_transcript: str
     metadata: Optional[Dict[str, Any]] = None
+    agent_id: Optional[int] = None
 
 
 class DialogueAction(BaseModel):
@@ -155,15 +159,15 @@ def _extract_location(text: str) -> Optional[str]:
     return None
 
 
-def _get_rag_context(query: str, top_k: int = 3) -> str:
-    """Get RAG context for LLM prompt."""
+def _get_rag_context(query: str, top_k: int = 3) -> tuple[str, list]:
+    """Get RAG context for LLM prompt. Returns (context_string, raw_results)."""
     if _query_rag is None:
-        return ""
+        return "", []
     
     try:
         results = _query_rag(query, top_k=top_k)
         if not results:
-            return ""
+            return "", []
         
         context_parts = ["Available Properties:"]
         for i, r in enumerate(results[:top_k], 1):
@@ -173,10 +177,10 @@ def _get_rag_context(query: str, top_k: int = 3) -> str:
             location = metadata.get("location", "")
             context_parts.append(f"{i}. {text[:200]}... (Price: {price}, Location: {location})")
         
-        return "\n".join(context_parts)
+        return "\n".join(context_parts), results
     except Exception as e:
         print(f"[RAG] Error: {e}")
-        return ""
+        return "", []
 
 
 def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]:
@@ -236,8 +240,8 @@ def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]
 # API Endpoints
 # ============================================================================
 
-@router.post("/dialogue/step")
-async def dialogue_step(payload: DialogueStepRequest):
+@router.post("/dialogue/step", response_model=DialogueStepResponse)
+async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
     """
     Process dialogue step with LLM + RAG, streaming the response.
     Returns a stream of JSON lines (NDJSON).
@@ -246,26 +250,25 @@ async def dialogue_step(payload: DialogueStepRequest):
     intent = _detect_intent(transcript)
     actions: List[DialogueAction] = []
     
-    # Get RAG context if property-related query
+    # Get RAG context if property-related query (single call, reuse results)
     rag_context = ""
+    rag_results = []
     if intent["wants_search"] or intent["has_location"]:
-        rag_context = _get_rag_context(transcript)
+        rag_context, rag_results = _get_rag_context(transcript)
         
         # Add listings action for frontend widget
-        if _query_rag and intent["wants_search"]:
-            results = _query_rag(transcript, top_k=3)
-            if results:
-                listings = []
-                for r in results[:3]:
-                    meta = r.get("metadata", {})
-                    listings.append({
-                        "id": r.get("id", ""),
-                        "title": r.get("text", "")[:100],
-                        "location": meta.get("location", ""),
-                        "price": str(meta.get("price", "N/A")),
-                        "image": ""
-                    })
-                actions.append(DialogueAction(type="show_listings", payload={"listings": listings}))
+        if rag_results and intent["wants_search"]:
+            listings = []
+            for r in rag_results[:3]:
+                meta = r.get("metadata", {})
+                listings.append({
+                    "id": r.get("id", ""),
+                    "title": r.get("text", "")[:100],
+                    "location": meta.get("location", ""),
+                    "price": str(meta.get("price", "N/A")),
+                    "image": ""
+                })
+            actions.append(DialogueAction(type="show_listings", payload={"listings": listings}))
     
     # Add price action if price query detected
     if intent["wants_price"]:
@@ -273,49 +276,31 @@ async def dialogue_step(payload: DialogueStepRequest):
         price_data = _get_price_estimate(location)
         actions.append(DialogueAction(type="show_price", payload=price_data))
     
-    async def generate_response_stream():
-        # 1. Send actions immediately if any
-        if actions:
-            actions_data = [a.dict() for a in actions]
-            yield json.dumps({"type": "actions", "data": actions_data}) + "\n"
-
-        # 2. Generate and stream LLM response
-        llm = _get_llm()
-        reply_buffer = ""
-        
-        if llm:
-            try:
-                # Set conversation history
-                recent_history = payload.history[-12:] 
-                history_dicts = [{"role": t.role, "text": t.text} for t in recent_history]
-                llm.set_history(history_dicts)
-                
-                # Build context for LLM
-                context = rag_context if rag_context else None
-                print(f"[LLM-INPUT] Transcript: {transcript}")
-                
-                # Stream tokens
-                for token in llm.generate_response_stream(transcript, context=context):
-                    yield json.dumps({"type": "token", "text": token}) + "\n"
-                    reply_buffer += token
-                    
-                print(f"[LLM-OUTPUT] {reply_buffer}")
-                
-            except Exception as e:
-                err_msg = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
-                yield json.dumps({"type": "token", "text": err_msg}) + "\n"
+    # Generate LLM response
+    llm = _get_llm()
+    if llm:
+        try:
+            # Set conversation history
+            # User requested short term memory of at least 6 turns.
+            recent_history = payload.history[-12:] 
+            history = [{"role": t.role, "text": t.text} for t in recent_history]
+            llm.set_history(history)
+            
+            # Build context for LLM
+            context = rag_context if rag_context else None
+            reply = llm.generate_response(transcript, context=context)
+        except Exception as e:
+            reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
+    else:
+        # Fallback if LLM not available
+        if intent["wants_search"]:
+            reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
+        elif intent["wants_price"]:
+            reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
         else:
-            # Fallback if LLM not available
-            if intent["wants_search"]:
-                fallback_reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
-            elif intent["wants_price"]:
-                fallback_reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
-            else:
-                fallback_reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
-            
-            yield json.dumps({"type": "token", "text": fallback_reply}) + "\n"
-            
-    return StreamingResponse(generate_response_stream(), media_type="application/x-ndjson")
+            reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
+    
+    return DialogueStepResponse(reply=reply, actions=actions)
 
 
 @router.post("/rag/query", response_model=RagQueryResponse)
@@ -367,3 +352,41 @@ async def price_predict(payload: PricePredictionRequest) -> PricePredictionRespo
         max_price_lakh=price_data["max_price"] / 100000,
         confidence=price_data["confidence"],
     )
+
+
+@router.get("/rag/stats")
+async def rag_stats():
+    """Return statistics about the RAG vector store."""
+    try:
+        from rag import vector_store
+        stats = vector_store.get_collection_stats()
+        
+        # Get file stats if possible
+        full_doc_count = 0
+        last_updated = "N/A"
+        processed_file = Path("data/processed/rag_corpus.jsonl")
+        
+        if processed_file.exists():
+            import datetime
+            ts = processed_file.stat().st_mtime
+            last_updated = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Simple line count for jsonl
+            # full_doc_count = sum(1 for _ in open(processed_file, 'r', encoding='utf-8'))
+    except Exception as e:
+        return {
+            "total_documents": 0,
+            "dimension": 0,
+            "last_updated": "Error",
+            "error": str(e)
+        }
+
+    return {
+        "total_documents": stats.get("count", 0),
+        "dimension": 384, # Default for paraphrase-multilingual-MiniLM-L12-v2
+        "last_updated": last_updated,
+        "recent_files": [
+            "zameen-com-dataset.csv", # Assuming this is the source
+            "rag_corpus.jsonl"
+        ]
+    }

@@ -301,14 +301,3 @@ python backend/demos/quick_demo.py --device cpu --model tiny
 See LICENSE file in parent repository.
 
 ---
-
-## 🎉 Next Steps (Iteration 2)
-
-After completing Iteration 1:
-1. LLM integration for intent understanding
-2. TTS (Text-to-Speech) for voice responses
-3. Dialog management and policy learning
-4. RAG for real estate knowledge base
-5. Production deployment
-
-**Focus for now**: Get a rock-solid ASR baseline! 🎯

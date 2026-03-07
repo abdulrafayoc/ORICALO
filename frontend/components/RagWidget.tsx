@@ -1,16 +1,16 @@
 import React from 'react';
-import { Building, MapPin, ArrowRight } from 'lucide-react';
-
-interface Property {
-    id: string;
-    title: string;
-    location: string;
-    price: string;
-    image?: string;
-}
+import { Building, MapPin, ArrowRight, BedDouble, Bath, Ruler } from 'lucide-react';
+import type { Property } from '@/lib/types';
 
 interface RagWidgetProps {
     listings: Property[];
+}
+
+/** Normalizes features from either a string[] or comma-separated string. */
+function parseFeatures(features: string[] | string | undefined): string[] {
+    if (!features) return [];
+    if (Array.isArray(features)) return features;
+    return typeof features === 'string' ? features.split(',').map(s => s.trim()) : [];
 }
 
 export default function RagWidget({ listings }: RagWidgetProps) {
@@ -28,22 +28,23 @@ export default function RagWidget({ listings }: RagWidgetProps) {
                 {listings.map((item) => (
                     <div
                         key={item.id}
-                        className="min-w-[240px] w-[240px] bg-black border border-neutral-800 rounded-lg overflow-hidden group hover:border-neutral-700 transition-colors"
+                        className="min-w-[280px] w-[280px] bg-black border border-neutral-800 rounded-lg overflow-hidden group hover:border-neutral-700 transition-colors flex flex-col"
                     >
-                        <div className="h-32 bg-neutral-800 relative overflow-hidden">
+                        <div className="h-32 bg-neutral-800 relative overflow-hidden shrink-0">
                             {item.image ? (
                                 <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-neutral-700">
-                                    <Building className="w-8 h-8" />
+                                <div className="w-full h-full flex flex-col items-center justify-center text-neutral-700 bg-neutral-900">
+                                    <Building className="w-8 h-8 mb-1" />
+                                    {item.type && <span className="text-xs uppercase tracking-widest">{item.type}</span>}
                                 </div>
                             )}
-                            <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
+                            <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded backdrop-blur-sm font-medium">
                                 {item.price}
                             </div>
                         </div>
 
-                        <div className="p-3">
+                        <div className="p-4 flex flex-col flex-1">
                             <h4 className="text-sm font-medium text-neutral-200 line-clamp-1 mb-1" title={item.title}>
                                 {item.title}
                             </h4>
@@ -52,9 +53,43 @@ export default function RagWidget({ listings }: RagWidgetProps) {
                                 <span className="line-clamp-1">{item.location}</span>
                             </div>
 
-                            <button className="w-full py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs text-neutral-400 hover:text-white transition-colors flex items-center justify-center gap-1">
-                                View Details <ArrowRight className="w-3 h-3" />
-                            </button>
+                            {/* Stats Row */}
+                            <div className="flex items-center gap-3 mb-3 text-xs text-neutral-400">
+                                {item.bedrooms != null && (
+                                    <span className="flex items-center gap-1"><BedDouble className="w-3 h-3" /> {item.bedrooms}</span>
+                                )}
+                                {item.baths != null && (
+                                    <span className="flex items-center gap-1"><Bath className="w-3 h-3" /> {item.baths}</span>
+                                )}
+                                {item.area && (
+                                    <span className="flex items-center gap-1"><Ruler className="w-3 h-3" /> {item.area}</span>
+                                )}
+                            </div>
+
+                            {/* Features */}
+                            {item.features && (() => {
+                                const feats = parseFeatures(item.features);
+                                return (
+                                    <div className="flex flex-wrap gap-1 mb-4">
+                                        {feats.slice(0, 2).map((feat, i) => (
+                                            <span key={i} className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded border border-neutral-700">
+                                                {feat}
+                                            </span>
+                                        ))}
+                                        {feats.length > 2 && (
+                                            <span className="text-[10px] text-neutral-600">
+                                                +{feats.length - 2} more
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            <div className="mt-auto">
+                                <button className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs text-neutral-400 hover:text-white transition-colors flex items-center justify-center gap-1">
+                                    View Details <ArrowRight className="w-3 h-3" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))}

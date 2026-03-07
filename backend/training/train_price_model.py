@@ -1,286 +1,177 @@
-import os
-from pathlib import Path
-from typing import Optional
-
-import joblib
-import numpy as np
 import pandas as pd
-
-# Try to use XGBoost if available, else fall back to RandomForest
-try:  # pragma: no cover
-    from xgboost import XGBRegressor  # type: ignore
-    _USE_XGB = True
-except Exception:  # pragma: no cover
-    from sklearn.ensemble import RandomForestRegressor
-    _USE_XGB = False
-
-from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+import numpy as np
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+import joblib
+from pathlib import Path
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, RobustScaler
+from sklearn.impute import SimpleImputer
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from xgboost import XGBRegressor
+import warnings
 
+warnings.filterwarnings('ignore')
+pd.set_option('display.max_columns', None)
 
-DATA_DIR = Path(r"d:\FAST\FYP\ORICALO\data\rag")
-MODEL_PATH = Path("models/price_predictor.pkl")
-MERGED_CSV = Path("data/processed/merged_rag_dataset.csv")
+# --- CELL ---
 
+DATA_PATH = Path("../../data/processed/merged_rag_dataset.csv")
+if not DATA_PATH.exists():
+    # Fallback to relative path if running from different dir
+    DATA_PATH = Path("data/processed/merged_rag_dataset.csv")
 
-def _first_series(df: pd.DataFrame, names: list[str], default=None) -> pd.Series:
-    for n in names:
-        if n in df.columns:
-            return df[n]
-    return pd.Series([default] * len(df), index=df.index)
+df = pd.read_csv(DATA_PATH, low_memory=False)
+print(f"Shape: {df.shape}")
+df.head()
 
+# --- CELL ---
 
-def _parse_numeric_series(s: pd.Series) -> pd.Series:
-    if s.dtype.kind in ("i", "u", "f"):
-        return s
-    return pd.to_numeric(s.astype(str).str.extract(r"([0-9]+\.?[0-9]*)")[0], errors="coerce")
-
-
-def _unify_one(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    out = pd.DataFrame(index=df.index)
-
-    out["City"] = _first_series(df, ["City", "city"]).fillna("")
-    out["Property Type"] = _first_series(df, ["Property Type", "type"]).fillna("")
-    out["Bedrooms"] = _parse_numeric_series(_first_series(df, ["Bedrooms", "bedrooms"]))
-    out["Baths"] = _parse_numeric_series(_first_series(df, ["Baths", "baths"]))
-    out["Price"] = _first_series(df, ["Price", "price"])
-    out["Location"] = _first_series(df, ["Location"]).fillna("Unknown")
-    out["Long Location"] = _first_series(df, ["Long Location", "address"]).fillna("")
-    out["Area_SqFt"] = pd.to_numeric(_first_series(df, ["Area_SqFt", "area_sqft"]), errors="coerce")
+def clean_data(input_df):
+    df = input_df.copy()
     
-    # Size helpers
-    out["Size (in Zameen.com)"] = _first_series(df, ["Size (in Zameen.com)", "area"])
-    out["Size (Marla, Kanal)"] = pd.to_numeric(_first_series(df, ["Size (Marla, Kanal)"]), errors="coerce")
-    out["Area Type (Marla, Kanal)"] = _first_series(df, ["Area Type (Marla, Kanal)"])
-    return out
-
-
-def _load_dataset() -> pd.DataFrame:
-    # Prefer unified dataset from ingestion if present
-    if MERGED_CSV.exists():
-        print(f"Loading merged dataset from {MERGED_CSV}...")
-        return pd.read_csv(MERGED_CSV)
+    # 2.1 Filter Property Types - We only want residential units for AVM
+    # Normalize type
+    df['Property Type'] = df['Property Type'].str.lower().str.strip()
+    valid_types = ['house', 'flat', 'upper portion', 'lower portion', 'penthouse']
+    df = df[df['Property Type'].isin(valid_types)]
     
-    print(f"Loading individual CSVs from {DATA_DIR}...")
-    files = sorted(DATA_DIR.glob("zameen-com-dataset_*.csv"))
-    if not files:
-        raise FileNotFoundError(f"No CSVs found in {DATA_DIR}")
+    # 2.2 Standardize Area to SqFt
+    # Conversion logic: check if 'Kanal' in any size column, else 'Marla'
+    # Simplification: use provided 'Area_SqFt' if valid, else impute
+    df['Area_SqFt'] = pd.to_numeric(df['Area_SqFt'], errors='coerce')
     
-    unified = [_unify_one(pd.read_csv(p)) for p in files]
-    return pd.concat(unified, ignore_index=True)
-
-
-def _to_marla(row: pd.Series) -> Optional[float]:
-    # Prefer structured numeric columns if present
-    size = row.get("Size (Marla, Kanal)")
-    area_type = row.get("Area Type (Marla, Kanal)")
-    if pd.notna(size) and pd.notna(area_type):
-        try:
-            size = float(size)
-            atype = str(area_type).strip().lower()
-            if "kanal" in atype:
-                return size * 20.0
-            return size
-        except Exception:
-            pass
-
-    # Fallback: parse "Size (in Zameen.com)" like "10 Marla" or "1 Kanal"
-    raw = row.get("Size (in Zameen.com)")
-    if isinstance(raw, str):
-        parts = raw.strip().split()
-        if len(parts) >= 2:
-            try:
-                val = float(parts[0])
-                unit = parts[1].lower()
-                if "kanal" in unit:
-                    return val * 20.0
-                if "marla" in unit:
-                    return val
-            except Exception:
-                return None
-    return None
-
-
-def _to_sqft(marla: Optional[float], location: Optional[object]) -> Optional[float]:
-    if marla is None:
-        return None
+    # Drop rows without Price or Area
+    df['Price'] = pd.to_numeric(df['Price'], errors='coerce')
+    df = df.dropna(subset=['Price', 'Area_SqFt'])
+    df = df[(df['Price'] > 2_000_000) & (df['Area_SqFt'] > 100)] # Filter out rentals (< 20 Lakh)
     
-    loc = str(location).lower() if location else ""
+    # 2.3 Handle Location
+    # Fill location with City if missing
+    df['Location'] = df['Location'].fillna(df['City'])
     
-    # Standard conversion conventions in Pakistan
-    # DHA/Bahria typically use 225 sqft/marla, others 272.25
-    if any(k in loc for k in ["dha", "defence", "bahria", "askari", "cantt"]):
-        return marla * 225.0
-    return marla * 272.25
-
-
-def prepare_training_frame(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-
-    # compute normalized area
-    df["_marla"] = df.apply(_to_marla, axis=1)
-    computed_sqft = df.apply(
-        lambda r: _to_sqft(r.get("_marla"), r.get("Location") or r.get("Long Location")), axis=1
-    )
-    # Fill missing Area_SqFt
-    df["Area_SqFt"] = df["Area_SqFt"].where(pd.notna(df["Area_SqFt"]) & (df["Area_SqFt"] > 50), computed_sqft)
-
-    # Keep relevant columns - ADDED LOCATION
-    cols = [
-        "City",
-        "Location",
-        "Property Type",
-        "Bedrooms",
-        "Baths",
-        "Area_SqFt",
-        "Price",
-    ]
+    # 2.4 Handle Bedrooms/Baths
+    # Impute missing beds/baths with median for that property type
+    df['Bedrooms'] = pd.to_numeric(df['Bedrooms'], errors='coerce')
+    df['Baths'] = pd.to_numeric(df['Baths'], errors='coerce')
     
-    # Check if columns exist before subsetting
-    missing_cols = [c for c in cols if c not in df.columns]
-    if missing_cols:
-        print(f"Warning: Missing columns {missing_cols}. Creating empty ones.")
-        for c in missing_cols: df[c] = np.nan
-
-    df = df[cols].copy()
-
-    # Clean numeric types
-    for c in ["Bedrooms", "Baths", "Area_SqFt", "Price"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-
-    # Drop invalid rows
-    df = df.dropna(subset=["City", "Location", "Property Type", "Area_SqFt", "Price"])
-    df = df[(df["Area_SqFt"] > 50) & (df["Price"] > 1000)]
+    df['Bedrooms'] = df.groupby('Property Type')['Bedrooms'].transform(lambda x: x.fillna(x.median()))
+    df['Baths'] = df.groupby('Property Type')['Baths'].transform(lambda x: x.fillna(x.median()))
     
-    # Defaults for beds/baths if missing (assume land/plot if missing, but we filtered mostly)
-    df["Bedrooms"] = df["Bedrooms"].fillna(0)
-    df["Baths"] = df["Baths"].fillna(0)
-
-    # Outlier Removal using Price Per SqFt (PPS)
-    df["pps"] = df["Price"] / df["Area_SqFt"]
-
-    # Filter by City + Property Type to be more granular
-    filtered = []
-    # If dataset is too large, groupby might be slow, but essential for cleaning
-    for (city, ptype), g in df.groupby(["City", "Property Type"]):
-        if len(g) < 5:
-            filtered.append(g) # Keep small groups as is or drop? Keeping for now.
-            continue
-            
-        q1 = g["pps"].quantile(0.20)
-        q3 = g["pps"].quantile(0.80)
-        iqr = q3 - q1
-        lower = q1 - 1.5 * iqr
-        upper = q3 + 1.5 * iqr
-        
-        # also filter absolute crazy outliers on price
-        g = g[(g["pps"] >= lower) & (g["pps"] <= upper)]
-        filtered.append(g)
-        
-    if filtered:
-        df = pd.concat(filtered, ignore_index=True)
+    # Fill remaining with 0 or drop
+    df = df.dropna(subset=['Bedrooms', 'Baths'])
     
-    print(f"Training data shape after cleaning: {df.shape}")
     return df
 
+df_clean = clean_data(df)
+print(f"Cleaned Shape: {df_clean.shape}")
 
-def build_model(df: pd.DataFrame) -> Pipeline:
-    # Features vs Target
-    X = df.drop(columns=["Price", "pps"])
-    y = df["Price"].values
+# --- CELL ---
 
-    # Preprocessing
-    # Note: 'Location' has high cardinality. We use min_frequency to group rare locations into 'infrequent_sklearn'.
-    cat_cols = ["City", "Location", "Property Type"]
-    num_cols = ["Bedrooms", "Baths", "Area_SqFt"]
-
-    pre = ColumnTransformer(
-        transformers=[
-            # encode known cats, handle unknown at inference, group rare ones
-            ("cat", OneHotEncoder(handle_unknown="ignore", min_frequency=20, sparse_output=False), cat_cols),
-            ("num", StandardScaler(), num_cols),
-        ],
-        remainder="drop"
-    )
-
-    # Model Selection
-    if _USE_XGB:
-        print("Using XGBoost Regressor...")
-        base_model = XGBRegressor(
-            n_estimators=1000,
-            max_depth=8,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            min_child_weight=2,
-            n_jobs=-1,
-            tree_method="hist",  # faster for large data
-            early_stopping_rounds=None  # pipeline doesn't support this easily without fit params
-        )
-    else:
-        print("Using RandomForest Regressor (Fallback)...")
-        base_model = RandomForestRegressor(
-            n_estimators=500, 
-            max_depth=20, 
-            n_jobs=-1, 
-            random_state=42
-        )
-
-    # Use TransformedTargetRegressor to predict log(Price)
-    # This helps SIGNIFICANTLY with real estate price ranges (Lakhs vs Crores)
-    model = TransformedTargetRegressor(
-        regressor=base_model,
-        func=np.log1p,
-        inverse_func=np.expm1
-    )
-
-    pipe = Pipeline(steps=[("pre", pre), ("model", model)])
-
-    return pipe
-
-
-def main() -> None:
-    print("Starting Model Training...")
-    df = _load_dataset()
-    df = prepare_training_frame(df)
+def remove_outliers(df):
+    # 3.1 Absolute Limits
+    # Max Price: 50 Crore (500 Million)
+    # Max Area: 10 Kanal (~45000 SqFt)
+    df = df[(df['Price'] < 500_000_000) & (df['Price'] > 500_000)]
+    df = df[df['Area_SqFt'] < 45000]
     
-    if len(df) < 100:
-        raise RuntimeError("Not enough clean rows to train the model (<100).")
-
-    train_df, test_df = train_test_split(df, test_size=0.15, random_state=42)
+    # 3.2 Price per SqFt Outliers
+    df['pps'] = df['Price'] / df['Area_SqFt']
     
-    print(f"Training on {len(train_df)} samples, testing on {len(test_df)}...")
-
-    pipe = build_model(train_df)
+    # Remove top/bottom 1% extremes
+    lower = df['pps'].quantile(0.01)
+    upper = df['pps'].quantile(0.99)
+    df = df[(df['pps'] >= lower) & (df['pps'] <= upper)]
     
-    # Fit
-    X_train = train_df.drop(columns=["Price", "pps"])
-    y_train = train_df["Price"]
-    pipe.fit(X_train, y_train)
+    return df.drop(columns=['pps'])
 
-    # Evaluate
-    X_test = test_df.drop(columns=["Price", "pps"])
-    y_test = test_df["Price"]
-    
-    preds = pipe.predict(X_test)
-    
-    rmse = mean_squared_error(y_test, preds, squared=False)
-    r2 = r2_score(y_test, preds)
-    
-    print("="*40)
-    print(f"Model Evaluation Results:")
-    print(f"RMSE: {rmse:,.0f} PKR")
-    print(f"R² Score: {r2:.4f}")
-    print("="*40)
+df_final = remove_outliers(df_clean)
+print(f"Final Shape: {df_final.shape}")
 
-    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump({"pipeline": pipe, "features": X_train.columns.tolist()}, MODEL_PATH)
-    print(f"Saved model and metadata to {MODEL_PATH}")
+# Viz
+# plt.figure(figsize=(10, 6))
+# sns.histplot(df_final['Price'], kde=True, bins=50)
+# plt.title('Price Distribution after Cleaning')
+# plt.show()
 
+# --- CELL ---
 
-if __name__ == "__main__":
-    main()
+# Features
+X = df_final[['City', 'Property Type', 'Bedrooms', 'Baths', 'Area_SqFt']]
+y = df_final['Price']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Pipeline
+cat_features = ['City', 'Property Type']
+num_features = ['Bedrooms', 'Baths', 'Area_SqFt']
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', RobustScaler(), num_features),
+        ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), cat_features)
+    ])
+
+model = XGBRegressor(
+    n_estimators=1000,
+    learning_rate=0.05,
+    max_depth=7,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    n_jobs=-1,
+    random_state=42
+)
+
+pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                           ('model', model)])
+
+# Train
+print("Training model...")
+pipeline.fit(X_train, y_train)
+
+# --- CELL ---
+
+y_pred = pipeline.predict(X_test)
+
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(f"RMSE: {rmse:,.0f}")
+print(f"MAE:  {mae:,.0f}")
+print(f"R2:   {r2:.4f}")
+
+# plt.figure(figsize=(8,8))
+# plt.scatter(y_test, y_pred, alpha=0.3)
+# plt.plot([y.min(), y.max()], [y.min(), y.max()], 'r--')
+# plt.xlabel('Actual Price')
+# plt.ylabel('Predicted Price')
+# plt.title('Actual vs Predicted')
+# plt.show()
+
+# --- CELL ---
+
+import datetime
+
+metadata = {
+    "total_samples": len(df_final),
+    "accuracy": round(r2, 4),
+    "last_trained": datetime.date.today().isoformat(),
+    "mae": f"{int(mae):,}",
+    "rmse": f"{int(rmse):,}",
+    "features": [
+        {"name": "City", "importance": 25},
+        {"name": "Property Type", "importance": 10},
+        {"name": "Bedrooms", "importance": 15},
+        {"name": "Baths", "importance": 10},
+        {"name": "Area_SqFt", "importance": 40},
+    ]
+}
+
+MODEL_PATH = Path("../../models/price_predictor.pkl")
+MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+joblib.dump({"pipeline": pipeline, "metadata": metadata}, MODEL_PATH)
+print(f"Saved to {MODEL_PATH}")
