@@ -1,42 +1,13 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from pydantic import BaseModel
-from datetime import datetime
 
 from app.db.session import get_db
 from app.db_tables.listing import Listing
+from app.schemas.listing import ListingCreate, ListingUpdate, ListingOut
 
 router = APIRouter(tags=["agency"])
-
-# --- schemas ---
-class ListingBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    price: Optional[str] = None
-    location: Optional[str] = None
-    city: Optional[str] = None
-    type: Optional[str] = None
-    bedrooms: Optional[int] = None
-    baths: Optional[int] = None
-    area: Optional[str] = None
-    features: Optional[List[str]] = None
-    agent_notes: Optional[str] = None
-
-class ListingCreate(ListingBase):
-    pass
-
-class ListingUpdate(ListingBase):
-    pass
-
-class ListingOut(ListingBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True
 
 # --- endpoints ---
 

@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="ORICALO AI Backend", version="0.1.0")
+
+# Setup metrics early
+Instrumentator().instrument(app).expose(app)
 
 # CORS Configuration
 origins = [
@@ -19,9 +23,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony
 
 app.include_router(stt.router)
+app.include_router(voice_orchestrator.router)
+app.include_router(analytics.router, prefix="/analytics")
+app.include_router(telephony.router, prefix="/telephony")
 app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)

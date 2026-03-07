@@ -38,6 +38,10 @@ def get_chatbot(
         from .llm_gemini import GeminiChatbot, create_gemini_chatbot
         return create_gemini_chatbot(**kwargs)
     
+    elif backend in ("groq", "api", "llama3"):
+        from .llm_groq import GroqChatbot, create_groq_chatbot
+        return create_groq_chatbot(**kwargs)
+        
     elif backend in ("huggingface", "hf", "local", "llama"):
         from .llm_hf import HuggingFaceChatbot, create_huggingface_chatbot
         return create_huggingface_chatbot(**kwargs)
@@ -47,11 +51,6 @@ def get_chatbot(
 
 
 # Convenience imports
-# try:
-#     from .llm_gemini import GeminiChatbot
-# except Exception:
-#     GeminiChatbot = None
-
 try:
     from .llm_hf import HuggingFaceChatbot
 except Exception:

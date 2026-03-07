@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calculator, Database, TrendingUp, Loader2, DollarSign, MapPin } from "lucide-react";
+import { Calculator, Database, TrendingUp, Loader2, MapPin } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 export default function AvmPage() {
     const [activeTab, setActiveTab] = useState<'demo' | 'data'>('demo');
@@ -23,7 +24,7 @@ export default function AvmPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await fetch("http://127.0.0.1:8000/valuation/predict", {
+            const res = await apiFetch("/valuation/predict", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(formData)
@@ -39,7 +40,7 @@ export default function AvmPage() {
 
     useEffect(() => {
         if (activeTab === 'data') {
-            fetch("http://127.0.0.1:8000/valuation/stats")
+            apiFetch("/valuation/stats")
                 .then(res => res.json())
                 .catch(err => console.error("Failed to fetch stats:", err))
                 .then(data => setStats(data));

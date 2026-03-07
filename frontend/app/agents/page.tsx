@@ -4,20 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Agent {
-    id: number;
-    name: string;
-    slug: string;
-    description: string;
-    is_active: boolean;
-}
+import { apiFetch } from "@/lib/api";
+import type { Agent } from "@/lib/types";
 
 export default function AgentsPage() {
     const [agents, setAgents] = useState<Agent[]>([]);
 
     useEffect(() => {
-        fetch("http://127.0.0.1:8000/agents/")
+        apiFetch("/agents/")
             .then(res => res.json())
             .then(setAgents)
             .catch(err => console.error("Failed to fetch agents", err));

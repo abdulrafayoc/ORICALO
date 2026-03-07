@@ -1,56 +1,50 @@
 # ============================================================================
-# Iteration 1: Urdu ASR/STT System - Dependencies
-# ============================================================================
-#
-# This file contains all dependencies needed for the first iteration of the
-# Urdu Speech-to-Text system for real estate voice AI.
-#
-# Installation:
-#   pip install -r requirements.txt
-#
-# For GPU support (optional, faster inference):
-#   pip install torch --index-url https://download.pytorch.org/whl/cu118
+# ORICALO: Dual-Backend Dependencies
 # ============================================================================
 
-# Core Machine Learning / ASR
+# --- Core API Dependencies (High-Speed PoC) ---
+groq>=0.4.0                 # Groq LLM API
+openai>=1.0.0               # OpenAI API (Fallback)
+deepgram-sdk>=3.2.0         # Deepgram STT API
+elevenlabs>=0.2.26          # ElevenLabs TTS API
+edge-tts>=6.1.9             # Free Edge TTS API
+
+# --- Core Local Dependencies (FYP Defense) ---
 torch>=2.0.0                # PyTorch for model inference
 transformers>=4.30.0        # HuggingFace Transformers (Whisper models)
 accelerate>=0.20.0          # Optimized model loading
 sentencepiece>=0.1.99       # Tokenization for some models
+pysbd>=0.3.4                # Sentence boundary detection
+llama-cpp-python>=0.2.20    # Local LLM Inference
 
-# Audio Processing
+# --- Shared Web & Audio Dependencies ---
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
+websockets>=12.0
 pyaudio>=0.2.13             # Microphone input and audio I/O
 sounddevice>=0.4.6          # Alternative audio backend
 librosa>=0.10.0             # Audio file loading and processing
 scipy>=1.10.0               # Signal processing utilities
 pydub>=0.25.1               # Audio format conversion
-
-# Voice Activity Detection
-# (Silero VAD will be loaded via torch.hub)
-
-# Sentence Segmentation
-pysbd>=0.3.4                # Sentence boundary detection
-
-# Data Processing & Analysis
 numpy>=1.24.0               # Numerical computing
-pandas>=2.0.0               # Data manipulation for lexicon/datasets
+pandas>=2.0.0               # Data manipulation
 
-# Evaluation & Metrics
-jiwer>=3.0.0                # Word Error Rate (WER) calculation
-scikit-learn>=1.2.0         # Additional metrics and analysis
-kaggle>=1.5.16              # Kaggle API for dataset downloading
+# --- Shared RAG & DB Dependencies ---
 chromadb>=0.4.0             # Vector Database
 sentence-transformers>=2.2.0 # Text Embeddings
-beautifulsoup4>=4.12.0     # Web Scraping
-httpx>=0.24.0               # Async HTTP client
+sqlalchemy>=2.0.0
+alembic>=1.11.0
 
-# Utilities
+# --- Evaluation & Utilities ---
+jiwer>=3.0.0                # Word Error Rate (WER) calculation
+scikit-learn>=1.2.0         # Additional metrics and analysis
 python-dotenv>=1.0.0        # Environment variable management
 tqdm>=4.65.0                # Progress bars for evaluations
-
-# MLOps
-dvc>=3.0.0                  # Data Version Control
-dvc-gdrive>=2.19.0          # Google Drive support for DVC
+httpx>=0.24.0               # Async HTTP client
+twilio>=9.0.0               # Telephony Integration
+prometheus-fastapi-instrumentator>=7.0.0 # Observability
+pytest>=8.0.0               # Testing framework
 
 # Note:
 # - On Windows, you may need to install PyAudio using: pip install pipwin && pipwin install pyaudio

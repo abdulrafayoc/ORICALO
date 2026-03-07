@@ -6,8 +6,6 @@ import {
     LayoutDashboard,
     Bot,
     Terminal,
-    Settings,
-    Video,
     FileText,
     Search,
     Calculator
@@ -20,9 +18,7 @@ const NAV_ITEMS = [
     { name: "Live Console", href: "/console", icon: Terminal },
     { name: "RAG Search", href: "/rag", icon: Search },
     { name: "Price Prediction", href: "/avm", icon: Calculator },
-    { name: "Recordings", href: "/recordings", icon: Video },
-    { name: "Logs", href: "/logs", icon: FileText },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Analytics", href: "/analytics", icon: FileText },
 ];
 
 export function Sidebar() {

@@ -1,22 +1,16 @@
 import React from 'react';
-import { Building, MapPin, ArrowRight, BedDouble, Bath, Ruler, Tag } from 'lucide-react';
-
-interface Property {
-    id: string;
-    title: string;
-    location: string;
-    price: string;
-    image?: string;
-    description?: string;
-    type?: string;
-    bedrooms?: number;
-    baths?: number;
-    area?: string;
-    features?: string[] | string; // Handle both JSON list or string
-}
+import { Building, MapPin, ArrowRight, BedDouble, Bath, Ruler } from 'lucide-react';
+import type { Property } from '@/lib/types';
 
 interface RagWidgetProps {
     listings: Property[];
+}
+
+/** Normalizes features from either a string[] or comma-separated string. */
+function parseFeatures(features: string[] | string | undefined): string[] {
+    if (!features) return [];
+    if (Array.isArray(features)) return features;
+    return typeof features === 'string' ? features.split(',').map(s => s.trim()) : [];
 }
 
 export default function RagWidget({ listings }: RagWidgetProps) {
@@ -73,27 +67,23 @@ export default function RagWidget({ listings }: RagWidgetProps) {
                             </div>
 
                             {/* Features */}
-                            {item.features && (
-                                <div className="flex flex-wrap gap-1 mb-4">
-                                    {(Array.isArray(item.features)
-                                        ? item.features
-                                        : (typeof item.features === 'string' ? item.features.split(',').map(s => s.trim()) : [])
-                                    )
-                                        .slice(0, 2).map((feat, i) => (
+                            {item.features && (() => {
+                                const feats = parseFeatures(item.features);
+                                return (
+                                    <div className="flex flex-wrap gap-1 mb-4">
+                                        {feats.slice(0, 2).map((feat, i) => (
                                             <span key={i} className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded border border-neutral-700">
                                                 {feat}
                                             </span>
                                         ))}
-                                    {(
-                                        (Array.isArray(item.features) ? item.features.length : (typeof item.features === 'string' ? item.features.split(',').length : 0))
-                                        > 2
-                                    ) && (
+                                        {feats.length > 2 && (
                                             <span className="text-[10px] text-neutral-600">
-                                                +{(Array.isArray(item.features) ? item.features.length : (typeof item.features === 'string' ? item.features.split(',').length : 0)) - 2} more
+                                                +{feats.length - 2} more
                                             </span>
                                         )}
-                                </div>
-                            )}
+                                    </div>
+                                );
+                            })()}
 
                             <div className="mt-auto">
                                 <button className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs text-neutral-400 hover:text-white transition-colors flex items-center justify-center gap-1">

@@ -2,19 +2,12 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { Save, ChevronLeft, Trash } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface Agent {
-    id?: number;
-    name: string;
-    slug: string;
-    description: string;
-    system_prompt: string;
-    is_active: boolean;
-}
+import { Save, ChevronLeft } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import type { Agent } from "@/lib/types";
 
 const DEFAULT_AGENT: Agent = {
+    id: 0,
     name: "",
     slug: "",
     description: "",
@@ -31,7 +24,7 @@ export default function AgentEditorPage({ params }: { params: Promise<{ id: stri
 
     useEffect(() => {
         if (!isNew) {
-            fetch(`http://127.0.0.1:8000/agents/${resolvedParams.id}`)
+            apiFetch(`/agents/${resolvedParams.id}`)
                 .then(res => res.json())
                 .then(setAgent)
                 .catch(err => console.error(err));
@@ -40,11 +33,11 @@ export default function AgentEditorPage({ params }: { params: Promise<{ id: stri
 
     const handleSave = async () => {
         setSaving(true);
-        const url = isNew ? "http://127.0.0.1:8000/agents/" : `http://127.0.0.1:8000/agents/${agent.id}`;
+        const path = isNew ? "/agents/" : `/agents/${agent.id}`;
         const method = isNew ? "POST" : "PUT";
 
         try {
-            await fetch(url, {
+            await apiFetch(path, {
                 method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(agent)

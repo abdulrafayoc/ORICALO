@@ -6,7 +6,7 @@ Handles LLM-based conversation, RAG retrieval, and price prediction.
 from typing import List, Optional, Dict, Any
 import os
 import json
-import re
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -159,15 +159,15 @@ def _extract_location(text: str) -> Optional[str]:
     return None
 
 
-def _get_rag_context(query: str, top_k: int = 3) -> str:
-    """Get RAG context for LLM prompt."""
+def _get_rag_context(query: str, top_k: int = 3) -> tuple[str, list]:
+    """Get RAG context for LLM prompt. Returns (context_string, raw_results)."""
     if _query_rag is None:
-        return ""
+        return "", []
     
     try:
         results = _query_rag(query, top_k=top_k)
         if not results:
-            return ""
+            return "", []
         
         context_parts = ["Available Properties:"]
         for i, r in enumerate(results[:top_k], 1):
@@ -177,10 +177,10 @@ def _get_rag_context(query: str, top_k: int = 3) -> str:
             location = metadata.get("location", "")
             context_parts.append(f"{i}. {text[:200]}... (Price: {price}, Location: {location})")
         
-        return "\n".join(context_parts)
+        return "\n".join(context_parts), results
     except Exception as e:
         print(f"[RAG] Error: {e}")
-        return ""
+        return "", []
 
 
 def _get_price_estimate(location: str, area_marla: float = 10) -> Dict[str, Any]:
@@ -229,26 +229,25 @@ async def dialogue_step(payload: DialogueStepRequest, db: AsyncSession = Depends
     intent = _detect_intent(transcript)
     actions: List[DialogueAction] = []
     
-    # Get RAG context if property-related query
+    # Get RAG context if property-related query (single call, reuse results)
     rag_context = ""
+    rag_results = []
     if intent["wants_search"] or intent["has_location"]:
-        rag_context = _get_rag_context(transcript)
+        rag_context, rag_results = _get_rag_context(transcript)
         
         # Add listings action for frontend widget
-        if _query_rag and intent["wants_search"]:
-            results = _query_rag(transcript, top_k=3)
-            if results:
-                listings = []
-                for r in results[:3]:
-                    meta = r.get("metadata", {})
-                    listings.append({
-                        "id": r.get("id", ""),
-                        "title": r.get("text", "")[:100],
-                        "location": meta.get("location", ""),
-                        "price": str(meta.get("price", "N/A")),
-                        "image": ""
-                    })
-                actions.append(DialogueAction(type="show_listings", payload={"listings": listings}))
+        if rag_results and intent["wants_search"]:
+            listings = []
+            for r in rag_results[:3]:
+                meta = r.get("metadata", {})
+                listings.append({
+                    "id": r.get("id", ""),
+                    "title": r.get("text", "")[:100],
+                    "location": meta.get("location", ""),
+                    "price": str(meta.get("price", "N/A")),
+                    "image": ""
+                })
+            actions.append(DialogueAction(type="show_listings", payload={"listings": listings}))
     
     # Add price action if price query detected
     if intent["wants_price"]:
