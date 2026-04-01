@@ -145,9 +145,15 @@ def build_index_from_listings(
     metas: List[Dict[str, Any]] = []
 
     for i, row in enumerate(listings):
-        rid = str(row.get("id", f"ag-{i}"))
+        rid = str(row.get("id", row.get("Property_Id", f"ag-{i}")))
         text = _row_to_text(row)
         meta = _row_to_metadata(row)
+
+        # ChromaDB requires non-empty metadata dicts with no None values
+        # Filter out None values and ensure at least one key exists
+        meta = {k: v for k, v in meta.items() if v is not None}
+        if not meta:
+            meta = {"source": "seed"}
 
         ids.append(rid)
         docs.append(text)

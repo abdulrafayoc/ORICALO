@@ -4,6 +4,7 @@ import json
 import base64
 import sys
 import os
+import functools
 
 # Append backend root
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -14,6 +15,31 @@ from rag.retriever import query_rag
 
 router = APIRouter()
 
+
+# ---------------------------------------------------------------------------
+# Async wrappers for blocking calls — prevents event-loop freeze
+# ---------------------------------------------------------------------------
+
+async def _async_rag_query(query: str, top_k: int = 2):
+    """Run RAG retrieval in a thread so it doesn't block the event loop."""
+    return await asyncio.to_thread(query_rag, query, top_k)
+
+
+async def _async_llm_generate(llm_engine, user_text: str, context: str):
+    """Run LLM generation in a thread so it doesn't block the event loop."""
+    return await asyncio.to_thread(llm_engine.generate_response, user_text, context=context)
+
+
+async def _async_tts_synthesize(tts_engine, text: str) -> bytes:
+    """Run TTS synthesis in a thread so it doesn't block the event loop.
+    If the engine has a native async method, prefer that."""
+    if hasattr(tts_engine, '_synthesize_async'):
+        # EdgeTTS has a native async method — use it directly
+        return await tts_engine._synthesize_async(text)
+    else:
+        return await asyncio.to_thread(tts_engine.synthesize, text)
+
+
 @router.websocket("/ws/voice_agent")
 async def voice_agent_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -23,6 +49,13 @@ async def voice_agent_endpoint(websocket: WebSocket):
     stt_engine = Ear_hf()
     llm_engine = get_chatbot()
     tts_engine = get_tts()
+    
+    # Tell frontend we are ready
+    await websocket.send_text(json.dumps({
+        "type": "status",
+        "status": "listening",
+        "message": "Listening..."
+    }))
     
     # Async Queue for Incoming Audio chunks
     audio_queue = asyncio.Queue()
@@ -56,33 +89,60 @@ async def voice_agent_endpoint(websocket: WebSocket):
                             "speaker": "user"
                         }))
                         
-                        # 2. RAG Retrieval
-                        rag_results = query_rag(user_text, top_k=2)
-                        context_str = "\n".join([f"[Listing-{r['id']}] {r['title']}: {r['price']} - {r['location']}" for r in rag_results])
-                        
-                        # 3. LLM Generation
-                        agent_reply = llm_engine.generate_response(user_text, context=context_str)
-                        
-                        # Send Agent Text to UI
-                        await websocket.send_text(json.dumps({
-                            "type": "transcript",
-                            "text": agent_reply,
-                            "is_final": True,
-                            "speaker": "agent"
-                        }))
-                        
-                        # 4. Text-to-Speech Generation
-                        # (We could stream this, but block-synthesize is easier to start)
-                        audio_bytes = tts_engine.synthesize(agent_reply)
-                        
-                        # 5. Send Audio back to Frontend
-                        audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                        await websocket.send_text(json.dumps({
-                            "type": "audio_out",
-                            "data": audio_b64
-                        }))
+                        try:
+                            # Tell UI we are processing
+                            await websocket.send_text(json.dumps({
+                                "type": "status", "status": "processing", "message": "Thinking..."
+                            }))
+
+                            # 2. RAG Retrieval (non-blocking)
+                            rag_results = await _async_rag_query(user_text, top_k=2)
+                            context_str = "\n".join([
+                                f"[Listing-{r['id']}] {r.get('metadata', {}).get('title', r.get('text', '')[:80])}: "
+                                f"{r.get('metadata', {}).get('price', 'N/A')} - {r.get('metadata', {}).get('location', '')}"
+                                for r in rag_results
+                            ])
+                            
+                            # 3. LLM Generation (non-blocking)
+                            agent_reply = await _async_llm_generate(llm_engine, user_text, context_str)
+                            
+                            # Send Agent Text to UI
+                            await websocket.send_text(json.dumps({
+                                "type": "transcript",
+                                "text": agent_reply,
+                                "is_final": True,
+                                "speaker": "agent"
+                            }))
+                            
+                            await websocket.send_text(json.dumps({
+                                "type": "status", "status": "speaking", "message": "Speaking..."
+                            }))
+
+                            # 4. Text-to-Speech Generation (non-blocking)
+                            audio_bytes = await _async_tts_synthesize(tts_engine, agent_reply)
+                            
+                            # 5. Send Audio back to Frontend
+                            audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+                            await websocket.send_text(json.dumps({
+                                "type": "audio_out",
+                                "data": audio_b64
+                            }))
+
+                        except Exception as e:
+                            print(f"Error during LLM/TTS interaction: {e}")
+                            await websocket.send_text(json.dumps({
+                                "type": "error",
+                                "message": f"Pipeline error: {str(e)[:100]}"
+                            }))
+                            
+                        finally:
+                            # Always reset back to listening
+                            await websocket.send_text(json.dumps({
+                                "type": "status", "status": "listening", "message": "Listening..."
+                            }))
+
                     else:
-                        # Partial transcirpts
+                        # Partial transcripts
                         await websocket.send_text(json.dumps({
                             "type": "transcript",
                             "text": msg["text"],
@@ -100,10 +160,13 @@ async def voice_agent_endpoint(websocket: WebSocket):
             pass
         except Exception as e:
             print(f"Orchestrator pipeline error: {e}")
-            await websocket.send_text(json.dumps({
-                "type": "error",
-                "message": str(e)
-            }))
+            try:
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": str(e)
+                }))
+            except Exception:
+                pass
 
     orchestrator_task = asyncio.create_task(stt_to_llm_to_tts())
 

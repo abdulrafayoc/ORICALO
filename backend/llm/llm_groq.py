@@ -3,12 +3,12 @@ from typing import List, Dict, Optional, Any, Generator
 from groq import Groq
 
 class GroqChatbot:
-    """High-speed LLM interaction using Groq API (Llama-3)."""
+    """High-speed LLM interaction using Groq API."""
     
-    def __init__(self, model_name: str = "llama3-8b-8192", api_key: str = None):
+    def __init__(self, model_name: str = "llama-3.1-8b-instant", api_key: str = None):
         """
         Args:
-           model_name: "llama3-8b-8192" or "llama3-70b-8192"
+           model_name: "llama-3.1-8b-instant" or "llama-3.1-70b-versatile"
         """
         self.api_key = api_key or os.getenv("GROQ_API_KEY")
         if not self.api_key:
@@ -43,6 +43,17 @@ When mentioning a specific property from the context, you MUST include its ID ta
 
     def reset_history(self):
         self._set_system_prompt()
+
+    def set_history(self, history: List[Dict[str, str]]):
+        """Set conversation history from list of {role, text} dicts."""
+        self._set_system_prompt()
+        for turn in history:
+            role = turn.get("role", "user").lower()
+            text = turn.get("text", "")
+            if role in ("user",):
+                self.history.append({"role": "user", "content": text})
+            else:
+                self.history.append({"role": "assistant", "content": text})
 
     def generate_response(self, prompt: str, context: Optional[str] = None) -> str:
         """Synchronous full response generation."""

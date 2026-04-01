@@ -5,7 +5,7 @@ from typing import Generator
 
 class EdgeTTS:
     """Free, high-quality Microsoft Edge TTS for Urdu."""
-    def __init__(self, voice: str = "ur-PK-AsadNeural"):
+    def __init__(self, voice: str = "ur-PK-UzmaNeural"):
         """
         Args:
             voice: ur-PK-AsadNeural (Male) or ur-PK-UzmaNeural (Female)
@@ -22,8 +22,20 @@ class EdgeTTS:
         return audio_stream.getvalue()
 
     def synthesize(self, text: str) -> bytes:
-        """Synchronous wrapper for synthesize."""
-        return asyncio.run(self._synthesize_async(text))
+        """Synchronous wrapper for synthesize. Safe to call from inside an event loop."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # We're inside an async event loop (e.g. FastAPI).
+            # Run in a new thread with its own event loop.
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(asyncio.run, self._synthesize_async(text)).result()
+        else:
+            return asyncio.run(self._synthesize_async(text))
 
     async def _stream_async(self, text: str):
         communicate = edge_tts.Communicate(text, self.voice)

@@ -133,6 +133,15 @@ export default function ConsolePage() {
                     if (response.speaker === "agent" && response.is_final) {
                         setAgentReply(response.text);
                     }
+                    return;
+                }
+
+                if (response.type === "error") {
+                    console.error("Backend Error:", response.message);
+                    setModelStatus("error");
+                    setStatusMessage(`Error: ${response.message}`);
+                    setTranscript((prev) => [...prev, `System: ❌ Error - ${response.message}`]);
+                    return;
                 }
             };
 

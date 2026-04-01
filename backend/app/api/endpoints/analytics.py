@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
 import re
+import asyncio
 from llm import get_chatbot
 
 router = APIRouter()
@@ -51,7 +52,8 @@ Output Format:
 Summary: <your summary>
 Status: <status>
 """
-    analysis_text = analyzer.generate_response(prompt)
+    # Run blocking LLM call in a thread to avoid event loop freeze
+    analysis_text = await asyncio.to_thread(analyzer.generate_response, prompt)
     
     # Quick parse
     summary = "Call processed."
@@ -68,3 +70,4 @@ Status: <status>
         summary=summary,
         qualification_status=status
     )
+

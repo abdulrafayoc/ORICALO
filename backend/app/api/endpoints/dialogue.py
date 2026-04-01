@@ -7,7 +7,9 @@ from typing import List, Optional, Dict, Any
 import os
 import json
 import re
+from pathlib import Path
 
+import pandas as pd
 from fastapi import APIRouter
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -246,6 +248,8 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
     Process dialogue step with LLM + RAG, streaming the response.
     Returns a stream of JSON lines (NDJSON).
     """
+    import asyncio
+
     transcript = payload.latest_transcript
     intent = _detect_intent(transcript)
     actions: List[DialogueAction] = []
@@ -254,7 +258,7 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
     rag_context = ""
     rag_results = []
     if intent["wants_search"] or intent["has_location"]:
-        rag_context, rag_results = _get_rag_context(transcript)
+        rag_context, rag_results = await asyncio.to_thread(_get_rag_context, transcript)
         
         # Add listings action for frontend widget
         if rag_results and intent["wants_search"]:
@@ -288,7 +292,7 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
             
             # Build context for LLM
             context = rag_context if rag_context else None
-            reply = llm.generate_response(transcript, context=context)
+            reply = await asyncio.to_thread(llm.generate_response, transcript, context=context)
         except Exception as e:
             reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
     else:
