@@ -22,6 +22,7 @@ export default function ConsolePage() {
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+    const [phoneNumber, setPhoneNumber] = useState<string>("");
 
     useEffect(() => {
         apiFetch("/agents/")
@@ -40,7 +41,10 @@ export default function ConsolePage() {
             setIsRecording(true);
             setTranscript((prev) => [...prev, "System: 🎤 Microphone access granted"]);
 
-            const ws = new WebSocket(`${WS_BASE}/ws/voice_agent`);
+            const wsUrl = phoneNumber.trim()
+                ? `${WS_BASE}/ws/voice_agent?phone=${encodeURIComponent(phoneNumber.trim())}`
+                : `${WS_BASE}/ws/voice_agent`;
+            const ws = new WebSocket(wsUrl);
             socketRef.current = ws;
 
             ws.onopen = () => {
@@ -207,6 +211,15 @@ export default function ConsolePage() {
 
                 <div className="flex gap-4 items-center">
                     <StatusIndicator modelStatus={modelStatus} statusMessage={statusMessage} />
+
+                    <input
+                        type="tel"
+                        placeholder="Phone (e.g. 03001234567)"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        disabled={isRecording}
+                        className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-sm rounded-md px-3 py-1.5 w-44 focus:border-neutral-600 outline-none hover:bg-neutral-800 transition-colors placeholder:text-neutral-600"
+                    />
 
                     <select
                         className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-sm rounded-md px-3 py-1.5 focus:border-neutral-600 outline-none hover:bg-neutral-800 transition-colors"

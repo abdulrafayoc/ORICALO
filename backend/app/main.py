@@ -31,7 +31,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony
+from app.api.endpoints import (
+    stt, dialogue, valuation, agents, agency,
+    voice_orchestrator, analytics, telephony,
+    callers, conversations, feedback_ep,
+)
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
@@ -41,6 +45,9 @@ app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)
 app.include_router(agency.router)
+app.include_router(callers.router)
+app.include_router(conversations.router)
+app.include_router(feedback_ep.router)
 
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
@@ -50,6 +57,9 @@ async def startup():
     # Import all models so Base.metadata knows about them
     import app.db_tables.agent  # noqa
     import app.db_tables.listing  # noqa
+    import app.db_tables.caller  # noqa
+    import app.db_tables.conversation  # noqa
+    import app.db_tables.feedback  # noqa
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

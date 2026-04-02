@@ -4,7 +4,7 @@ import json
 import base64
 import sys
 import os
-import functools
+import uuid
 
 # Append backend root
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -12,6 +12,11 @@ from stt import Ear_hf, record_user, record_user_stream
 from llm import get_chatbot
 from tts import get_tts
 from rag.retriever import query_rag
+
+from app.db.session import AsyncSessionLocal
+from app.services.session_memory import SessionMemory
+from app.services.caller_memory import CallerMemory
+from app.services.entity_extractor import extract_entities
 
 router = APIRouter()
 
@@ -44,19 +49,43 @@ async def _async_tts_synthesize(tts_engine, text: str) -> bytes:
 async def voice_agent_endpoint(websocket: WebSocket):
     await websocket.accept()
     print("Full-Duplex Voice WebSocket connected")
-    
+
     # Initialize Engines based on .env toggles
     stt_engine = Ear_hf()
     llm_engine = get_chatbot()
     tts_engine = get_tts()
-    
+
+    # --- Memory initialization ---
+    session_id = str(uuid.uuid4())
+    session_memory = SessionMemory(session_id=session_id, channel="web")
+    caller = None
+
+    # Load caller profile if phone number provided via query param
+    phone_number = websocket.query_params.get("phone")
+    if phone_number:
+        try:
+            async with AsyncSessionLocal() as db:
+                caller = await CallerMemory.get_or_create(db, phone_number)
+                session_memory.caller_id = caller.id
+                caller_context = CallerMemory.build_profile_context(caller)
+                # Inject caller context into LLM system prompt
+                if caller_context and hasattr(llm_engine, 'system_prompt'):
+                    llm_engine.system_prompt += f"\n\nCaller Profile:\n{caller_context}"
+                    if hasattr(llm_engine, 'history') and llm_engine.history:
+                        llm_engine.history[0] = {
+                            "role": "system",
+                            "content": llm_engine.system_prompt,
+                        }
+        except Exception as e:
+            print(f"[Memory] Failed to load caller profile: {e}")
+
     # Tell frontend we are ready
     await websocket.send_text(json.dumps({
         "type": "status",
         "status": "listening",
         "message": "Listening..."
     }))
-    
+
     # Async Queue for Incoming Audio chunks
     audio_queue = asyncio.Queue()
 
@@ -80,7 +109,7 @@ async def voice_agent_endpoint(websocket: WebSocket):
                 async for msg in stt_engine.transcribe_stream_async(audio_generator()):
                     if msg.get("is_final"):
                         user_text = msg["text"]
-                        
+
                         # 1. Send Transcript to UI
                         await websocket.send_text(json.dumps({
                             "type": "transcript",
@@ -88,7 +117,7 @@ async def voice_agent_endpoint(websocket: WebSocket):
                             "is_final": True,
                             "speaker": "user"
                         }))
-                        
+
                         try:
                             # Tell UI we are processing
                             await websocket.send_text(json.dumps({
@@ -102,10 +131,27 @@ async def voice_agent_endpoint(websocket: WebSocket):
                                 f"{r.get('metadata', {}).get('price', 'N/A')} - {r.get('metadata', {}).get('location', '')}"
                                 for r in rag_results
                             ])
-                            
+
+                            # --- Memory: extract entities & record user turn ---
+                            entities = extract_entities(user_text)
+                            session_memory.add_turn(
+                                role="user",
+                                text=user_text,
+                                entities=entities,
+                                rag_results=rag_results,
+                            )
+
+                            # --- Memory: enrich context with session memory ---
+                            memory_context = session_memory.get_context_summary()
+                            if memory_context:
+                                context_str = f"Session Context:\n{memory_context}\n\n{context_str}"
+
                             # 3. LLM Generation (non-blocking)
                             agent_reply = await _async_llm_generate(llm_engine, user_text, context_str)
-                            
+
+                            # --- Memory: record agent turn ---
+                            session_memory.add_turn(role="agent", text=agent_reply)
+
                             # Send Agent Text to UI
                             await websocket.send_text(json.dumps({
                                 "type": "transcript",
@@ -113,14 +159,14 @@ async def voice_agent_endpoint(websocket: WebSocket):
                                 "is_final": True,
                                 "speaker": "agent"
                             }))
-                            
+
                             await websocket.send_text(json.dumps({
                                 "type": "status", "status": "speaking", "message": "Speaking..."
                             }))
 
                             # 4. Text-to-Speech Generation (non-blocking)
                             audio_bytes = await _async_tts_synthesize(tts_engine, agent_reply)
-                            
+
                             # 5. Send Audio back to Frontend
                             audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
                             await websocket.send_text(json.dumps({
@@ -134,7 +180,7 @@ async def voice_agent_endpoint(websocket: WebSocket):
                                 "type": "error",
                                 "message": f"Pipeline error: {str(e)[:100]}"
                             }))
-                            
+
                         finally:
                             # Always reset back to listening
                             await websocket.send_text(json.dumps({
@@ -155,7 +201,7 @@ async def voice_agent_endpoint(websocket: WebSocket):
                     "type": "error",
                     "message": "Local STT flow requires threading (stt_hf), please use API mode for the PoC Demo."
                 }))
-                
+
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -174,14 +220,14 @@ async def voice_agent_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            
+
             if message.get("type") == "audio" and "data" in message:
                 audio_bytes = base64.b64decode(message["data"])
                 await audio_queue.put(audio_bytes)
-                
+
             elif message.get("type") == "close":
                 break
-                
+
     except WebSocketDisconnect:
         print("Voice WebSocket disconnected")
     except Exception as e:
@@ -189,7 +235,38 @@ async def voice_agent_endpoint(websocket: WebSocket):
     finally:
         await audio_queue.put(None)
         orchestrator_task.cancel()
+
+        # --- Memory: persist session to database ---
         try:
-             await websocket.close()
+            if session_memory.turns:
+                async with AsyncSessionLocal() as db:
+                    # Generate summary via LLM
+                    summary = await CallerMemory.generate_summary(
+                        session_memory, llm_engine
+                    )
+                    conv = await session_memory.persist(db)
+                    conv.summary = summary
+
+                    # Simple lead classification from summary
+                    summary_lower = (summary or "").lower()
+                    if any(kw in summary_lower for kw in [
+                        "interested", "budget", "wants to buy", "looking for",
+                        "schedule", "visit",
+                    ]):
+                        conv.lead_status = "Qualified Lead"
+
+                    await db.commit()
+
+                    # Update caller long-term preferences
+                    if caller:
+                        await CallerMemory.update_preferences(
+                            db, caller, session_memory
+                        )
+                print(f"[Memory] Session {session_id} persisted ({len(session_memory.turns)} turns)")
+        except Exception as e:
+            print(f"[Memory] Failed to persist session: {e}")
+
+        try:
+            await websocket.close()
         except Exception:
-             pass
+            pass

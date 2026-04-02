@@ -3,6 +3,7 @@
 # Python venvs
 .venv/
 venv/
+.runenv/
 
 # Python caches
 __pycache__/

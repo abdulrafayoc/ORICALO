@@ -16,8 +16,10 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.db.session import get_db
+from app.db.session import get_db, AsyncSessionLocal
 from app.db_tables.agent import Agent
+from app.services.entity_extractor import extract_entities as extract_memory_entities
+from app.services.caller_memory import CallerMemory
 
 load_dotenv()
 
@@ -280,18 +282,40 @@ async def dialogue_step(payload: DialogueStepRequest) -> DialogueStepResponse:
         price_data = _get_price_estimate(location)
         actions.append(DialogueAction(type="show_price", payload=price_data))
     
+    # --- Memory: extract entities from user text ---
+    entities = extract_memory_entities(transcript)
+
+    # --- Memory: load caller profile if phone provided in metadata ---
+    caller_context = ""
+    phone = payload.metadata.get("phone_number") if payload.metadata else None
+    if phone:
+        try:
+            async with AsyncSessionLocal() as db:
+                caller = await CallerMemory.get_or_create(db, phone)
+                caller_context = CallerMemory.build_profile_context(caller)
+        except Exception as e:
+            print(f"[Memory] Caller lookup failed: {e}")
+
+    # Combine caller context with RAG context
+    if caller_context and rag_context:
+        combined_context = f"Caller Profile: {caller_context}\n\n{rag_context}"
+    elif caller_context:
+        combined_context = f"Caller Profile: {caller_context}"
+    else:
+        combined_context = rag_context
+
     # Generate LLM response
     llm = _get_llm()
     if llm:
         try:
             # Set conversation history
             # User requested short term memory of at least 6 turns.
-            recent_history = payload.history[-12:] 
+            recent_history = payload.history[-12:]
             history = [{"role": t.role, "text": t.text} for t in recent_history]
             llm.set_history(history)
-            
+
             # Build context for LLM
-            context = rag_context if rag_context else None
+            context = combined_context if combined_context else None
             reply = await asyncio.to_thread(llm.generate_response, transcript, context=context)
         except Exception as e:
             reply = f"معذرت، جواب میں مسئلہ آ گیا۔ ({str(e)[:50]})"
