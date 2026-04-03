@@ -21,7 +21,7 @@ Thumbs.db
 .vscode/
 
 # Models and large artifacts
-models/
+# models/
 
 # Evaluation outputs
 backend/evaluation/results/
