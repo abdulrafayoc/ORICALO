@@ -87,7 +87,7 @@ class GroqWhisperSTT:
                 model=self.model,
                 language=self.language,
                 response_format="text",
-                prompt="Real estate conversation in Urdu. Property, plot, house, ghar, makan, DHA, Bahria.",
+                prompt="Transcribe Urdu speech accurately. Only return the exact speech content. If speech is unclear or not Urdu, return empty string."
             )
             # response_format="text" returns a plain string
             return str(transcription).strip()

@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, rag_simple
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
@@ -41,6 +41,7 @@ app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)
 app.include_router(agency.router)
+app.include_router(rag_simple.router)
 
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
@@ -54,7 +55,6 @@ async def startup():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            print("✅ Database tables created successfully")
     except Exception as e:
         print(f"⚠️  Database connection failed: {e}")
         print("🔄 Continuing without database - some features may be limited")

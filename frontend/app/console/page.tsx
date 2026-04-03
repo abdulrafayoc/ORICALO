@@ -97,6 +97,17 @@ export default function ConsolePage() {
 
                 if (response.type === "audio_out") {
                     try {
+                        // Stop any current audio immediately
+                        const audioCtx = (streamRef.current as any)._audioContext;
+                        if (audioCtx && (streamRef.current as any)._currentSource) {
+                            try {
+                                (streamRef.current as any)._currentSource.stop();
+                                (streamRef.current as any)._currentSource = null;
+                            } catch (e) {
+                                // Audio might have already finished
+                            }
+                        }
+
                         const binaryStr = window.atob(response.data);
                         const len = binaryStr.length;
                         const bytes = new Uint8Array(len);
@@ -104,14 +115,24 @@ export default function ConsolePage() {
                             bytes[i] = binaryStr.charCodeAt(i);
                         }
 
-                        const audioCtx = (streamRef.current as any)._audioContext;
                         if (audioCtx) {
                             const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
                             const source = audioCtx.createBufferSource();
                             source.buffer = audioBuffer;
                             source.connect(audioCtx.destination);
+                            
+                            // Store reference for immediate interruption
+                            (streamRef.current as any)._currentSource = source;
+                            
                             source.start(0);
+                            
+                            // Show simple message (no partial/final distinction)
                             setTranscript((prev) => [...prev, "System: 🔊 Playing response..."]);
+                            
+                            // Handle audio end
+                            source.onended = () => {
+                                (streamRef.current as any)._currentSource = null;
+                            };
                         }
                     } catch (e) {
                         console.error("Audio playback failed", e);
@@ -119,16 +140,67 @@ export default function ConsolePage() {
                     return;
                 }
 
-                if (response.type === "status") {
-                    const status = response.status as ModelStatus;
-                    setModelStatus(status);
-                    setStatusMessage(response.message);
+                if (response.type === "audio_stop") {
+                    // Handle interruption from backend - STOP IMMEDIATELY
+                    const audioCtx = (streamRef.current as any)._audioContext;
+                    if (audioCtx && (streamRef.current as any)._currentSource) {
+                        try {
+                            (streamRef.current as any)._currentSource.stop();
+                            (streamRef.current as any)._currentSource = null;
+                            console.log("🗣️ Audio stopped immediately due to user speech");
+                        } catch (e) {
+                            // Audio might have already finished
+                        }
+                    }
+                    setTranscript((prev) => [...prev, "System: ⏹️ Audio stopped - user detected"]);
                     return;
                 }
 
+                if (response.type === "status") {
+                    const now = Date.now();
+                    const status = response.status as ModelStatus;
+                    setModelStatus(status);
+                    setStatusMessage(response.message);
+                    
+                    // Handle interruption status with debouncing
+                    if (response.status === "interrupted") {
+                        // Debounce interruption messages
+                        if (!(window as any).lastInterruptionTime || now - (window as any).lastInterruptionTime > 1000) {
+                            (window as any).lastInterruptionTime = now;
+                            
+                            const audioCtx = (streamRef.current as any)._audioContext;
+                            if (audioCtx && (streamRef.current as any)._currentSource) {
+                                try {
+                                    (streamRef.current as any)._currentSource.stop();
+                                    (streamRef.current as any)._currentSource = null;
+                                } catch (e) {
+                                    // Audio might have already finished
+                                }
+                            }
+                            setTranscript((prev) => [...prev, "System: 🗣️ User speech detected - interrupting..."]);
+                        }
+                    }
+                    return;
+                }
+
+                // Handle transcript updates (simplified for non-streaming)
                 if (response.type === "transcript") {
                     const speakerToken = response.speaker === "agent" ? "🤖 Agent:" : "🎙️ You:";
-                    setTranscript((prev) => [...prev, `${speakerToken} ${response.text}`]);
+                    const isFinal = response.is_final;
+                    
+                    if (isFinal) {
+                        setTranscript((prev) => {
+                            // Remove any previous partial agent messages
+                            const filtered = prev.filter(msg => !msg.includes("🤖 Agent: [PARTIAL]"));
+                            return [...filtered, `${speakerToken} ${response.text}`];
+                        });
+                    } else {
+                        // Handle partial messages (though shouldn't occur with non-streaming)
+                        setTranscript((prev) => {
+                            const filtered = prev.filter(msg => !msg.includes("🤖 Agent: [PARTIAL]"));
+                            return [...filtered, `🤖 Agent: [PARTIAL] ${response.text}`];
+                        });
+                    }
 
                     if (response.speaker === "agent" && response.is_final) {
                         setAgentReply(response.text);

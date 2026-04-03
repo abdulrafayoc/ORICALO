@@ -18,7 +18,7 @@ except Exception as e:  # pragma: no cover
 
 
 # Defaults
-_DEFAULT_PERSIST_DIR = os.getenv("RAG_CHROMA_DIR", "data/vector/chroma")
+_DEFAULT_PERSIST_DIR = os.getenv("RAG_CHROMA_DIR", "data/vector/chroma_new")
 _DEFAULT_COLLECTION = os.getenv("RAG_COLLECTION", "agency_portfolio")
 _DEFAULT_EMBED_MODEL = os.getenv(
     "RAG_EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2"
@@ -40,7 +40,28 @@ def get_client(persist_dir: str | Path = _DEFAULT_PERSIST_DIR):
         )
     persist_dir = Path(persist_dir)
     persist_dir.mkdir(parents=True, exist_ok=True)
-    return PersistentClient(path=str(persist_dir))
+    
+    # Try the most basic approach without any tenant specification
+    try:
+        print(f"🔗 Creating ChromaDB client at: {persist_dir}")
+        client = PersistentClient(path=str(persist_dir))
+        print("✅ Basic ChromaDB client created successfully")
+        return client
+    except Exception as e:
+        print(f"❌ Basic client failed: {e}")
+        # Try with settings object
+        try:
+            settings = chromadb.config.Settings(
+                anonymized_telemetry=False,
+                allow_reset=False,
+                is_persistent=True
+            )
+            client = PersistentClient(path=str(persist_dir), settings=settings)
+            print("✅ ChromaDB client with settings created")
+            return client
+        except Exception as e2:
+            print(f"❌ Settings client failed: {e2}")
+            raise RuntimeError(f"Could not create ChromaDB client: {e2}")
 
 
 def get_collection(
