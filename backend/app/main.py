@@ -50,8 +50,14 @@ async def startup():
     # Import all models so Base.metadata knows about them
     import app.db_tables.agent  # noqa
     import app.db_tables.listing  # noqa
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            print("✅ Database tables created successfully")
+    except Exception as e:
+        print(f"⚠️  Database connection failed: {e}")
+        print("🔄 Continuing without database - some features may be limited")
 
 @app.get("/")
 async def root():

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, MoreHorizontal } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
 import type { Agent } from "@/lib/types";
@@ -16,6 +16,30 @@ export default function AgentsPage() {
             .then(setAgents)
             .catch(err => console.error("Failed to fetch agents", err));
     }, []);
+
+    const handleDeleteAgent = async (agentId: number, event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        if (!confirm("Are you sure you want to delete this agent?")) {
+            return;
+        }
+        
+        try {
+            const response = await apiFetch(`/agents/${agentId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                setAgents(agents.filter(agent => agent.id !== agentId));
+            } else {
+                throw new Error('Failed to delete agent');
+            }
+        } catch (err) {
+            console.error("Error deleting agent:", err);
+            alert("Failed to delete agent. Please try again.");
+        }
+    };
 
     return (
         <div className="space-y-8">
@@ -66,7 +90,16 @@ export default function AgentsPage() {
 
                             <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
                                 <span className="text-xs font-mono text-neutral-500">{agent.slug}</span>
-                                <MoreHorizontal className="w-4 h-4 text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => handleDeleteAgent(agent.id, e)}
+                                        className="p-1 rounded text-neutral-500 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                                        title="Delete agent"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                    <MoreHorizontal className="w-4 h-4 text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
                             </div>
                         </div>
                     </Link>
