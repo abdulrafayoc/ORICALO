@@ -53,7 +53,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers=headers,
     )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, rag_simple
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
