@@ -1,13 +1,21 @@
 """
 TTS Module for ORICALO Voice Agent.
-Provides a factory function to switch between Edge-TTS and ElevenLabs API based on the .env toggle.
+
+Provides a factory function to switch between ElevenLabs and Edge-TTS
+based on the TTS_BACKEND env var.
+
+Async Streaming Contract:
+  All TTS engines should support one of these methods for the streaming pipeline:
+  - async_synthesize_stream(text) -> AsyncGenerator[bytes]  (preferred, lowest latency)
+  - _synthesize_async(text) -> bytes  (Edge TTS native async)
+  - synthesize(text) -> bytes  (sync fallback, wrapped in asyncio.to_thread)
 """
 
 import os
 from typing import Optional, Union
 
 # Default backend
-DEFAULT_BACKEND = os.getenv("TTS_BACKEND", "edge")
+DEFAULT_BACKEND = os.getenv("TTS_BACKEND", "elevenlabs")
 
 def get_tts(
     backend: Optional[str] = None,
@@ -25,6 +33,7 @@ def get_tts(
         return EdgeTTS(**kwargs)
     
     else:
-        raise ValueError(f"Unknown TTS backend: {backend}. Use 'edge' or 'elevenlabs'.")
+        raise ValueError(f"Unknown TTS backend: {backend}. Use 'elevenlabs' or 'edge'.")
 
 __all__ = ["get_tts"]
+

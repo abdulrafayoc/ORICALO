@@ -1,14 +1,34 @@
+"""
+Voice Orchestrator — Streaming Pipeline with Barge-In Support.
+
+Architecture:
+  Audio In → STT (streaming) → Transcript
+  Transcript → RAG (parallel) + LLM (streaming tokens)
+  LLM tokens → Sentence Buffer → TTS (streaming chunks)
+  TTS chunks → WebSocket → Frontend (immediate playback)
+
+  Barge-In: VAD detects speech during SPEAKING state →
+            Cancel LLM + TTS tasks → Flush audio → Resume LISTENING
+
+State Machine:
+  LISTENING → PROCESSING → SPEAKING → LISTENING
+                                 ↓
+                           (barge-in) → LISTENING
+"""
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 import json
 import base64
 import sys
 import os
+import time
+import enum
 import functools
 
 # Append backend root
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
-from stt import Ear_hf, record_user, record_user_stream
+from stt import Ear_hf
 from llm import get_chatbot
 from tts import get_tts
 from rag.retriever import query_rag
@@ -16,180 +36,396 @@ from rag.retriever import query_rag
 router = APIRouter()
 
 
-# ---------------------------------------------------------------------------
-# Async wrappers for blocking calls — prevents event-loop freeze
-# ---------------------------------------------------------------------------
-
-async def _async_rag_query(query: str, top_k: int = 2):
-    """Run RAG retrieval in a thread so it doesn't block the event loop."""
-    return await asyncio.to_thread(query_rag, query, top_k)
+class AgentState(enum.Enum):
+    LISTENING = "listening"
+    PROCESSING = "processing"
+    SPEAKING = "speaking"
 
 
-async def _async_llm_generate(llm_engine, user_text: str, context: str):
-    """Run LLM generation in a thread so it doesn't block the event loop."""
-    return await asyncio.to_thread(llm_engine.generate_response, user_text, context=context)
+# --- Sentence Buffering Utilities ---
+
+# Characters that indicate a sentence boundary in Urdu and English
+_SENTENCE_ENDERS = {"۔", ".", "!", "?", "؟", ":", "\n"}
 
 
-async def _async_tts_synthesize(tts_engine, text: str) -> bytes:
-    """Run TTS synthesis in a thread so it doesn't block the event loop.
-    If the engine has a native async method, prefer that."""
-    if hasattr(tts_engine, '_synthesize_async'):
-        # EdgeTTS has a native async method — use it directly
-        return await tts_engine._synthesize_async(text)
-    else:
-        return await asyncio.to_thread(tts_engine.synthesize, text)
+def extract_sentences(buffer: str) -> tuple[list[str], str]:
+    """
+    Extract complete sentences from a token buffer.
+    Returns (list_of_complete_sentences, remaining_buffer).
+    
+    Handles Urdu full stop (۔), English punctuation, and newlines.
+    """
+    sentences = []
+    current = ""
 
+    for char in buffer:
+        current += char
+        if char in _SENTENCE_ENDERS:
+            stripped = current.strip()
+            if stripped and len(stripped) > 3:  # Skip trivially small fragments
+                sentences.append(stripped)
+            current = ""
+
+    return sentences, current
+
+
+# --- Main WebSocket Endpoint ---
 
 @router.websocket("/ws/voice_agent")
 async def voice_agent_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("Full-Duplex Voice WebSocket connected")
-    
-    # Initialize Engines based on .env toggles
+    print("[Orchestrator] Voice WebSocket connected")
+
+    # Initialize engines
     stt_engine = Ear_hf()
     llm_engine = get_chatbot()
     tts_engine = get_tts()
-    
-    # Tell frontend we are ready
-    await websocket.send_text(json.dumps({
-        "type": "status",
-        "status": "listening",
-        "message": "Listening..."
-    }))
-    
-    # Async Queue for Incoming Audio chunks
-    audio_queue = asyncio.Queue()
 
+    # State management
+    state = AgentState.LISTENING
+    interrupt_event = asyncio.Event()
+    active_pipeline_tasks: list[asyncio.Task] = []
+
+    # Audio queue for incoming microphone data
+    audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+
+    # Track what was actually spoken for context truncation on barge-in
+    spoken_text_buffer: list[str] = []
+
+    async def _send_json(data: dict):
+        """Safe JSON send with connection check."""
+        try:
+            await websocket.send_text(json.dumps(data))
+        except Exception:
+            pass
+
+    async def _set_state(new_state: AgentState, message: str = ""):
+        nonlocal state
+        state = new_state
+        await _send_json({
+            "type": "status",
+            "status": new_state.value,
+            "message": message or new_state.value.capitalize() + "...",
+        })
+
+    # --- Audio Generator for STT ---
     async def audio_generator():
-        """Yields audio chunks from the queue for STT."""
+        """Yields audio chunks from the queue for the STT engine."""
         while True:
             chunk = await audio_queue.get()
             if chunk is None:
                 break
             yield chunk
 
-    async def stt_to_llm_to_tts():
+    # --- Pipeline: Transcript → RAG → LLM Stream → TTS Stream → Audio Out ---
+    async def run_pipeline(user_text: str):
         """
-        Background task orchestrating the flow:
-        STT Stream -> Final Transcript -> RAG -> LLM -> TTS -> WebSocket (Audio bytes)
+        The core streaming pipeline. Runs as a cancellable task.
+        
+        1. Fire RAG query (async, non-blocking)
+        2. Stream LLM tokens, buffer into sentences
+        3. As each sentence completes, stream TTS audio chunks
+        4. Send each audio chunk to frontend immediately
         """
+        nonlocal spoken_text_buffer
+        spoken_text_buffer = []
+
         try:
-            # Check if STT engine is async (like deepgram_stt.py) or sync (like stt_hf.py)
-            if hasattr(stt_engine, 'transcribe_stream_async'):
-                # API Backend flow
-                async for msg in stt_engine.transcribe_stream_async(audio_generator()):
-                    if msg.get("is_final"):
-                        user_text = msg["text"]
-                        
-                        # 1. Send Transcript to UI
-                        await websocket.send_text(json.dumps({
-                            "type": "transcript",
-                            "text": user_text,
-                            "is_final": True,
-                            "speaker": "user"
-                        }))
-                        
-                        try:
-                            # Tell UI we are processing
-                            await websocket.send_text(json.dumps({
-                                "type": "status", "status": "processing", "message": "Thinking..."
-                            }))
+            # --- 1. Send user transcript to UI ---
+            await _send_json({
+                "type": "transcript",
+                "text": user_text,
+                "is_final": True,
+                "speaker": "user",
+            })
 
-                            # 2. RAG Retrieval (non-blocking)
-                            rag_results = await _async_rag_query(user_text, top_k=2)
-                            context_str = "\n".join([
-                                f"[Listing-{r['id']}] {r.get('metadata', {}).get('title', r.get('text', '')[:80])}: "
-                                f"{r.get('metadata', {}).get('price', 'N/A')} - {r.get('metadata', {}).get('location', '')}"
-                                for r in rag_results
-                            ])
-                            
-                            # 3. LLM Generation (non-blocking)
-                            agent_reply = await _async_llm_generate(llm_engine, user_text, context_str)
-                            
-                            # Send Agent Text to UI
-                            await websocket.send_text(json.dumps({
-                                "type": "transcript",
-                                "text": agent_reply,
-                                "is_final": True,
-                                "speaker": "agent"
-                            }))
-                            
-                            await websocket.send_text(json.dumps({
-                                "type": "status", "status": "speaking", "message": "Speaking..."
-                            }))
+            await _set_state(AgentState.PROCESSING, "Thinking...")
 
-                            # 4. Text-to-Speech Generation (non-blocking)
-                            audio_bytes = await _async_tts_synthesize(tts_engine, agent_reply)
-                            
-                            # 5. Send Audio back to Frontend
+            # --- 2. RAG Retrieval (async, non-blocking) ---
+            try:
+                rag_results = await asyncio.to_thread(query_rag, user_text, top_k=3)
+                context_str = "\n".join([
+                    f"[Listing-{r['id']}] {r.get('metadata', {}).get('title', r.get('text', '')[:80])}: "
+                    f"{r.get('metadata', {}).get('price', 'N/A')} - {r.get('metadata', {}).get('location', '')}"
+                    for r in rag_results
+                ]) if rag_results else None
+            except Exception as e:
+                print(f"[Orchestrator] RAG error: {e}")
+                context_str = None
+
+            # --- 3. Stream LLM tokens → Sentence Buffer → TTS → Audio Out ---
+            await _set_state(AgentState.SPEAKING, "Speaking...")
+
+            full_reply = ""
+            token_buffer = ""
+            first_audio_sent = False
+
+            async for token in llm_engine.async_stream_response(user_text, context=context_str):
+                if interrupt_event.is_set():
+                    break
+
+                full_reply += token
+                token_buffer += token
+
+                # Check for complete sentences
+                sentences, token_buffer = extract_sentences(token_buffer)
+
+                for sentence in sentences:
+                    if interrupt_event.is_set():
+                        break
+
+                    # Synthesize this sentence and stream audio chunks
+                    try:
+                        if hasattr(tts_engine, 'async_synthesize_stream'):
+                            # ElevenLabs async streaming path
+                            audio_chunks = []
+                            async for audio_chunk in tts_engine.async_synthesize_stream(sentence):
+                                if interrupt_event.is_set():
+                                    break
+
+                                audio_b64 = base64.b64encode(audio_chunk).decode('utf-8')
+                                await _send_json({
+                                    "type": "audio_chunk",
+                                    "data": audio_b64,
+                                    "is_first": not first_audio_sent,
+                                })
+                                first_audio_sent = True
+                                audio_chunks.append(audio_chunk)
+
+                            if not interrupt_event.is_set():
+                                spoken_text_buffer.append(sentence)
+
+                        elif hasattr(tts_engine, '_synthesize_async'):
+                            # Edge TTS async (full sentence, not chunked)
+                            audio_bytes = await tts_engine._synthesize_async(sentence)
+                            if not interrupt_event.is_set():
+                                audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+                                await _send_json({
+                                    "type": "audio_chunk",
+                                    "data": audio_b64,
+                                    "is_first": not first_audio_sent,
+                                })
+                                first_audio_sent = True
+                                spoken_text_buffer.append(sentence)
+                        else:
+                            # Sync fallback
+                            audio_bytes = await asyncio.to_thread(tts_engine.synthesize, sentence)
+                            if not interrupt_event.is_set():
+                                audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+                                await _send_json({
+                                    "type": "audio_chunk",
+                                    "data": audio_b64,
+                                    "is_first": not first_audio_sent,
+                                })
+                                first_audio_sent = True
+                                spoken_text_buffer.append(sentence)
+
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        print(f"[Orchestrator] TTS error for sentence: {e}")
+
+            # Flush remaining buffer as final sentence
+            if token_buffer.strip() and not interrupt_event.is_set():
+                remaining = token_buffer.strip()
+                try:
+                    if hasattr(tts_engine, 'async_synthesize_stream'):
+                        async for audio_chunk in tts_engine.async_synthesize_stream(remaining):
+                            if interrupt_event.is_set():
+                                break
+                            audio_b64 = base64.b64encode(audio_chunk).decode('utf-8')
+                            await _send_json({
+                                "type": "audio_chunk",
+                                "data": audio_b64,
+                                "is_first": not first_audio_sent,
+                            })
+                            first_audio_sent = True
+                        if not interrupt_event.is_set():
+                            spoken_text_buffer.append(remaining)
+                    elif hasattr(tts_engine, '_synthesize_async'):
+                        audio_bytes = await tts_engine._synthesize_async(remaining)
+                        if not interrupt_event.is_set():
                             audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                            await websocket.send_text(json.dumps({
-                                "type": "audio_out",
-                                "data": audio_b64
-                            }))
+                            await _send_json({
+                                "type": "audio_chunk",
+                                "data": audio_b64,
+                                "is_first": not first_audio_sent,
+                            })
+                            spoken_text_buffer.append(remaining)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    print(f"[Orchestrator] TTS flush error: {e}")
 
-                        except Exception as e:
-                            print(f"Error during LLM/TTS interaction: {e}")
-                            await websocket.send_text(json.dumps({
-                                "type": "error",
-                                "message": f"Pipeline error: {str(e)[:100]}"
-                            }))
-                            
-                        finally:
-                            # Always reset back to listening
-                            await websocket.send_text(json.dumps({
-                                "type": "status", "status": "listening", "message": "Listening..."
-                            }))
+            # Signal end of audio stream
+            if not interrupt_event.is_set():
+                await _send_json({"type": "audio_end"})
 
+                # Send complete agent transcript
+                await _send_json({
+                    "type": "transcript",
+                    "text": full_reply,
+                    "is_final": True,
+                    "speaker": "agent",
+                })
+
+        except asyncio.CancelledError:
+            print("[Orchestrator] Pipeline cancelled (barge-in)")
+            # Truncate LLM history to what was actually spoken
+            actually_spoken = " ".join(spoken_text_buffer)
+            if hasattr(llm_engine, 'truncate_last_response'):
+                llm_engine.truncate_last_response(actually_spoken)
+            raise
+
+        except Exception as e:
+            print(f"[Orchestrator] Pipeline error: {e}")
+            await _send_json({
+                "type": "error",
+                "message": f"Pipeline error: {str(e)[:100]}",
+            })
+
+        finally:
+            if not interrupt_event.is_set():
+                await _set_state(AgentState.LISTENING, "Listening...")
+
+    # --- Barge-In Handler ---
+    async def handle_interrupt():
+        """Cancel all active pipeline tasks and signal frontend to stop playback."""
+        nonlocal active_pipeline_tasks
+        interrupt_event.set()
+
+        # Cancel active pipeline tasks
+        for task in active_pipeline_tasks:
+            if not task.done():
+                task.cancel()
+
+        # Wait for cancellations to propagate
+        if active_pipeline_tasks:
+            await asyncio.gather(*active_pipeline_tasks, return_exceptions=True)
+        active_pipeline_tasks = []
+
+        # Tell frontend to flush its audio buffer
+        await _send_json({
+            "type": "interrupt",
+            "message": "User interrupted — clearing audio buffer",
+        })
+
+        interrupt_event.clear()
+        await _set_state(AgentState.LISTENING, "Listening...")
+        print("[Orchestrator] Barge-in handled — back to LISTENING")
+
+    # --- STT Consumer Task ---
+    async def stt_consumer():
+        """
+        Listens to the STT stream and orchestrates the pipeline.
+        Handles barge-in when speech is detected during SPEAKING state.
+        """
+        nonlocal active_pipeline_tasks
+
+        try:
+            if hasattr(stt_engine, 'transcribe_stream_async'):
+                # Deepgram / Groq async streaming path
+                async for msg in stt_engine.transcribe_stream_async(audio_generator()):
+                    msg_type = msg.get("type", "")
+
+                    # --- Speech Started Event ---
+                    if msg_type == "speech_started":
+                        # We ignore Deepgram's raw VAD event because it's too sensitive to background noise.
+                        # Instead, we will trigger barge-in only when actual text is transcribed below.
+                        continue
+
+                    # --- Utterance End Event ---
+                    if msg_type == "utterance_end":
+                        continue  # We rely on is_final transcripts instead
+
+                    # --- Transcript Events ---
+                    text = msg.get("text", "").strip()
+                    is_final = msg.get("is_final", False)
+
+                    if not text:
+                        continue
+
+                    # Trigger barge-in if we get actual text while speaking
+                    # This prevents background noise from causing false interruptions
+                    if state == AgentState.SPEAKING:
+                        print(f"[Orchestrator] BARGE-IN detected on text: '{text}'")
+                        await handle_interrupt()
+
+                    if is_final:
+                        # Launch new pipeline task
+                        pipeline_task = asyncio.create_task(run_pipeline(text))
+                        active_pipeline_tasks.append(pipeline_task)
+
+                        # Clean up completed tasks
+                        active_pipeline_tasks = [
+                            t for t in active_pipeline_tasks if not t.done()
+                        ]
                     else:
-                        # Partial transcripts
-                        await websocket.send_text(json.dumps({
+                        # Partial transcript — send to UI for live display
+                        await _send_json({
                             "type": "transcript",
-                            "text": msg["text"],
+                            "text": text,
                             "is_final": False,
-                            "speaker": "user"
-                        }))
+                            "speaker": "user",
+                        })
             else:
-                # Local Backend Flow (stt_hf.py block-threading implementation)
-                await websocket.send_text(json.dumps({
+                # Fallback for non-streaming STT
+                await _send_json({
                     "type": "error",
-                    "message": "Local STT flow requires threading (stt_hf), please use API mode for the PoC Demo."
-                }))
-                
+                    "message": "STT engine does not support async streaming. Use Deepgram or Groq backend.",
+                })
+
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            print(f"Orchestrator pipeline error: {e}")
+            print(f"[Orchestrator] STT consumer error: {e}")
             try:
-                await websocket.send_text(json.dumps({
+                await _send_json({
                     "type": "error",
-                    "message": str(e)
-                }))
+                    "message": str(e),
+                })
             except Exception:
                 pass
 
-    orchestrator_task = asyncio.create_task(stt_to_llm_to_tts())
+    # --- Start Pipeline ---
+    await _set_state(AgentState.LISTENING, "Listening...")
+    stt_task = asyncio.create_task(stt_consumer())
 
+    # --- WebSocket Message Loop ---
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            
+
             if message.get("type") == "audio" and "data" in message:
                 audio_bytes = base64.b64decode(message["data"])
                 await audio_queue.put(audio_bytes)
-                
+
             elif message.get("type") == "close":
                 break
-                
+
     except WebSocketDisconnect:
-        print("Voice WebSocket disconnected")
+        print("[Orchestrator] Voice WebSocket disconnected")
     except Exception as e:
-        print(f"Error in websocket loop: {e}")
+        print(f"[Orchestrator] WebSocket loop error: {e}")
     finally:
+        # Cleanup
         await audio_queue.put(None)
-        orchestrator_task.cancel()
+
+        # Cancel all tasks
+        stt_task.cancel()
+        for task in active_pipeline_tasks:
+            if not task.done():
+                task.cancel()
+
         try:
-             await websocket.close()
+            await asyncio.gather(stt_task, *active_pipeline_tasks, return_exceptions=True)
         except Exception:
-             pass
+            pass
+
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+        print("[Orchestrator] Session cleaned up")

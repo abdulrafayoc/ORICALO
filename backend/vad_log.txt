@@ -180,3 +180,23 @@ Sending to Groq API...
 Got transription: 'سمجھا گی نا کہ مطلب اب ایک بن رہے فلو تو بن رہے.'
 [GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
 [GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.993)
+Endpointing after 1020ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Bunlar articular, moral Souherah.'
+[GroqSTT] Speech started (prob: 0.463)
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.988 | Speech? True
+Yielding listening interim...
+Yielding listening interim...
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.885 | Speech? True
+Endpointing after 1033ms silence, buffer: 83 chunks
+Sending to Groq API...
+Got transription: 'موسیقی السلام علیکم. موسیقی موسیقی موسیقی موسیقی'
+[GroqSTT] Speech started (prob: 0.808)
+Endpointing after 809ms silence, buffer: 13 chunks
+Sending to Groq API...
+Got transription: 'Tchau.'

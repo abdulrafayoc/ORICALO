@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="ORICALO AI Backend", version="0.1.0")
@@ -15,12 +16,14 @@ app = FastAPI(title="ORICALO AI Backend", version="0.1.0")
 # Setup metrics early
 Instrumentator().instrument(app).expose(app)
 
-# CORS Configuration
+# CORS origins — supports both local dev and any additional origins from env
+EXTRA_ORIGINS = [o.strip() for o in os.getenv("EXTRA_CORS_ORIGINS", "").split(",") if o.strip()]
 origins = [
     "http://localhost:3000",  # Next.js Frontend
     "http://127.0.0.1:3000",
     "http://localhost:8000",  # FastAPI Backend
     "http://127.0.0.1:8000",
+    *EXTRA_ORIGINS,
 ]
 
 app.add_middleware(
@@ -30,6 +33,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Global exception handler ---
+# FastAPI's CORSMiddleware is bypassed when an unhandled exception occurs,
+# causing the browser to report a "CORS error" that is actually a backend 500.
+# This handler ensures CORS headers are always present on error responses.
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in origins or not origin:
+        headers["Access-Control-Allow-Origin"] = origin or "*"
+        headers["Access-Control-Allow-Credentials"] = "true"
+
+    print(f"[ERROR] Unhandled exception on {request.url.path}: {type(exc).__name__}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers=headers,
+    )
 
 from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony
 

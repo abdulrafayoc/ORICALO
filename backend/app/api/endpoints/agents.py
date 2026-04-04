@@ -11,9 +11,15 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 
 @router.get("/", response_model=List[AgentRead])
 async def read_agents(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Agent).offset(skip).limit(limit))
-    agents = result.scalars().all()
-    return agents
+    try:
+        result = await db.execute(select(Agent).offset(skip).limit(limit))
+        agents = result.scalars().all()
+        return agents
+    except Exception as e:
+        # DB is down — return empty list so the frontend doesn't crash
+        print(f"[agents] DB read failed: {e}")
+        return []
+
 
 @router.post("/", response_model=AgentRead)
 async def create_agent(agent: AgentCreate, db: AsyncSession = Depends(get_db)):

@@ -56,3 +56,14 @@ google-generativeai>=0.3.0
 # LLM - Local
 llama-cpp-python>=0.2.0
 huggingface_hub>=0.16.0
+
+# LLM - Groq API
+groq>=0.4.0
+
+# STT - Deepgram Streaming
+deepgram-sdk>=3.0.0
+
+# TTS Engines
+edge-tts>=6.1.0
+elevenlabs>=1.0.0
+

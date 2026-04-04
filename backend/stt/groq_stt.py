@@ -33,7 +33,7 @@ class GroqWhisperSTT:
         api_key: Optional[str] = None,
         model: str = "whisper-large-v3-turbo",
         language: str = "ur",
-        endpointing_ms: int = 800,
+        endpointing_ms: int = 550,
         vad_threshold: float = 0.5,
     ):
         """
@@ -96,11 +96,17 @@ class GroqWhisperSTT:
             return ""
 
     async def transcribe_stream_async(
-        self, audio_generator: AsyncGenerator[bytes, None]
+        self,
+        audio_generator: AsyncGenerator[bytes, None],
+        on_interrupt: Optional[callable] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Consumes an async generator of PCM audio chunks, uses VAD to detect
         speech boundaries, then sends complete utterances to Groq Whisper API.
+
+        Args:
+            audio_generator: Async generator yielding raw PCM bytes.
+            on_interrupt: Optional callback when speech detected (for barge-in).
         """
         audio_buffer: list[bytes] = []
         speech_started = False
@@ -108,14 +114,10 @@ class GroqWhisperSTT:
         silence_chunks_after_speech = 0
         chunk_count = 0
 
-        with open("vad_log.txt", "a") as f:
-            f.write(f"\n[GroqSTT] Starting audio stream loop for {self.model}\n")
+        print(f"[GroqSTT] Starting audio stream loop for {self.model}")
 
         async for chunk in audio_generator:
             chunk_count += 1
-            if chunk_count % 50 == 0:
-                with open("vad_log.txt", "a") as f:
-                    f.write(f"[GroqSTT] Processed {chunk_count} audio chunks. Last chunk length: {len(chunk)}\n")
 
             # Convert PCM bytes to float32 for VAD
             if isinstance(chunk, bytes):
@@ -129,31 +131,25 @@ class GroqWhisperSTT:
             is_speech = prob > 0.3  # using explicit 0.3 threshold instead of self.vad.threshold for robustness
             current_time = time.time()
 
-            if chunk_count % 50 == 0:
-                with open("vad_log.txt", "a") as f:
-                    f.write(f"[GroqSTT] Chunk VAD probability: {prob:.3f} | Speech? {is_speech}\n")
-
             if is_speech:
                 silence_chunks_after_speech = 0
 
                 if not speech_started:
                     speech_started = True
                     audio_buffer = []
-                    with open("vad_log.txt", "a") as f:
-                        f.write(f"[GroqSTT] Speech started (prob: {prob:.3f})\n")
+                    print(f"[GroqSTT] Speech started (prob: {prob:.3f})")
+                    # Signal speech started (for barge-in)
+                    yield {"type": "speech_started"}
+                    if on_interrupt:
+                        try:
+                            on_interrupt()
+                        except Exception:
+                            pass
 
                 audio_buffer.append(chunk)
                 last_speech_time = current_time
 
-                # Emit interim "listening" feedback every ~1 second of speech
-                buffer_duration_s = len(audio_buffer) * len(chunk) / (2 * 16000)
-                if len(audio_buffer) % 30 == 0 and buffer_duration_s > 0.5:
-                    with open("vad_log.txt", "a") as f:
-                        f.write(f"Yielding listening interim...\n")
-                    yield {
-                        "text": "🎙️ Listening...",
-                        "is_final": False,
-                    }
+                # No fake partials — Groq doesn't support real streaming partials
 
             else:
                 # Silence
@@ -167,8 +163,7 @@ class GroqWhisperSTT:
 
                     if silence_duration_ms > self.endpointing_ms:
                         # --- Endpoint reached: transcribe the utterance ---
-                        with open("vad_log.txt", "a") as f:
-                            f.write(f"Endpointing after {silence_duration_ms:.0f}ms silence, buffer: {len(audio_buffer)} chunks\n")
+                        print(f"[GroqSTT] Endpointing after {silence_duration_ms:.0f}ms silence, buffer: {len(audio_buffer)} chunks")
 
                         if audio_buffer:
                             # Combine PCM chunks and convert to WAV
@@ -176,11 +171,8 @@ class GroqWhisperSTT:
                             wav_data = self._pcm_to_wav(pcm_data)
 
                             # Send to Groq (run in thread to not block event loop)
-                            with open("vad_log.txt", "a") as f:
-                                f.write("Sending to Groq API...\n")
                             text = await asyncio.to_thread(self._transcribe_audio, wav_data)
-                            with open("vad_log.txt", "a", encoding="utf-8") as f:
-                                f.write(f"Got transription: '{text}'\n")
+                            print(f"[GroqSTT] Transcription: '{text[:80]}'")
 
                             if text and text.strip() and text.strip() not in (".", ",", "!", "?"):
                                 yield {

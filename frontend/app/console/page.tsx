@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Mic, Square, Terminal } from "lucide-react";
 import PriceWidget from "@/components/PriceWidget";
 import RagWidget from "@/components/RagWidget";
@@ -8,6 +8,105 @@ import WaveformVisualizer from "@/components/WaveformVisualizer";
 import { StatusIndicator, type ModelStatus } from "@/components/StatusIndicator";
 import { apiFetch, WS_BASE } from "@/lib/api";
 import type { Agent } from "@/lib/types";
+
+/**
+ * Streaming Audio Player
+ * 
+ * Manages a queue of MP3 audio chunks received from the backend.
+ * Plays them sequentially without gaps, and supports instant
+ * interruption (flush) for barge-in.
+ */
+class StreamingAudioPlayer {
+    private audioContext: AudioContext;
+    private chunks: ArrayBuffer[] = [];
+    private isPlaying = false;
+    private currentSource: AudioBufferSourceNode | null = null;
+    private onPlaybackEnd: (() => void) | null = null;
+    private _interrupted = false;
+
+    constructor(audioContext: AudioContext, onPlaybackEnd?: () => void) {
+        this.audioContext = audioContext;
+        this.onPlaybackEnd = onPlaybackEnd || null;
+    }
+
+    /** Add a decoded chunk to the playback queue */
+    async enqueue(base64Data: string) {
+        try {
+            const binaryStr = window.atob(base64Data);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) {
+                bytes[i] = binaryStr.charCodeAt(i);
+            }
+            this.chunks.push(bytes.buffer);
+
+            if (!this.isPlaying) {
+                this._interrupted = false;
+                this.playNext();
+            }
+        } catch (e) {
+            console.error("Failed to enqueue audio chunk", e);
+        }
+    }
+
+    /** Play the next chunk in the queue */
+    private async playNext() {
+        if (this._interrupted || this.chunks.length === 0) {
+            this.isPlaying = false;
+            if (!this._interrupted && this.onPlaybackEnd) {
+                this.onPlaybackEnd();
+            }
+            return;
+        }
+
+        this.isPlaying = true;
+        const chunk = this.chunks.shift()!;
+
+        try {
+            const audioBuffer = await this.audioContext.decodeAudioData(chunk.slice(0));
+            if (this._interrupted) {
+                this.isPlaying = false;
+                return;
+            }
+
+            const source = this.audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(this.audioContext.destination);
+            this.currentSource = source;
+
+            source.onended = () => {
+                this.currentSource = null;
+                this.playNext();
+            };
+
+            source.start(0);
+        } catch (e) {
+            console.warn("Audio decode/play error, skipping chunk:", e);
+            this.playNext();
+        }
+    }
+
+    /** Immediately stop playback and flush all queued audio (barge-in) */
+    flush() {
+        this._interrupted = true;
+        this.chunks = [];
+
+        if (this.currentSource) {
+            try {
+                this.currentSource.stop();
+            } catch {
+                // Already stopped
+            }
+            this.currentSource = null;
+        }
+
+        this.isPlaying = false;
+    }
+
+    /** Signal that no more chunks are coming — play remaining queue */
+    finalize() {
+        // Nothing special needed; playNext() will drain naturally
+    }
+}
 
 export default function ConsolePage() {
     const [isRecording, setIsRecording] = useState(false);
@@ -22,6 +121,13 @@ export default function ConsolePage() {
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+    const playerRef = useRef<StreamingAudioPlayer | null>(null);
+    const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+
+    // Auto-scroll transcript to bottom
+    useEffect(() => {
+        transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [transcript]);
 
     useEffect(() => {
         apiFetch("/agents/")
@@ -45,10 +151,10 @@ export default function ConsolePage() {
 
             ws.onopen = () => {
                 setModelStatus("connected");
-                setStatusMessage("Connected - initializing ASR...");
+                setStatusMessage("Connected — initializing STT...");
                 setTranscript((prev) => [...prev, "System: 🔌 Connected to ORICALO backend"]);
 
-                // Raw PCM streaming via Web Audio API — faster than MediaRecorder
+                // Raw PCM streaming via Web Audio API
                 const audioContext = new AudioContext({ sampleRate: 16000 });
                 const source = audioContext.createMediaStreamSource(stream);
 
@@ -56,6 +162,11 @@ export default function ConsolePage() {
                 analyserNode.fftSize = 2048;
                 source.connect(analyserNode);
                 setAnalyser(analyserNode);
+
+                // Initialize streaming audio player for agent responses
+                playerRef.current = new StreamingAudioPlayer(audioContext, () => {
+                    // Playback ended naturally
+                });
 
                 const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
@@ -95,6 +206,35 @@ export default function ConsolePage() {
             ws.onmessage = async (event) => {
                 const response = JSON.parse(event.data);
 
+                // --- Streaming Audio Chunks (new) ---
+                if (response.type === "audio_chunk") {
+                    if (playerRef.current) {
+                        await playerRef.current.enqueue(response.data);
+                    }
+                    if (response.is_first) {
+                        setTranscript((prev) => [...prev, "System: 🔊 Agent speaking..."]);
+                    }
+                    return;
+                }
+
+                // --- Audio Stream End (new) ---
+                if (response.type === "audio_end") {
+                    if (playerRef.current) {
+                        playerRef.current.finalize();
+                    }
+                    return;
+                }
+
+                // --- Barge-In Interrupt (new) ---
+                if (response.type === "interrupt") {
+                    if (playerRef.current) {
+                        playerRef.current.flush();
+                    }
+                    setTranscript((prev) => [...prev, "System: ⚡ User interrupted — agent stopped"]);
+                    return;
+                }
+
+                // --- Legacy: full audio blob (backward compat) ---
                 if (response.type === "audio_out") {
                     try {
                         const binaryStr = window.atob(response.data);
@@ -104,14 +244,13 @@ export default function ConsolePage() {
                             bytes[i] = binaryStr.charCodeAt(i);
                         }
 
-                        const audioCtx = (streamRef.current as any)._audioContext;
+                        const audioCtx = (streamRef.current as any)?._audioContext;
                         if (audioCtx) {
                             const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
                             const source = audioCtx.createBufferSource();
                             source.buffer = audioBuffer;
                             source.connect(audioCtx.destination);
                             source.start(0);
-                            setTranscript((prev) => [...prev, "System: 🔊 Playing response..."]);
                         }
                     } catch (e) {
                         console.error("Audio playback failed", e);
@@ -128,7 +267,20 @@ export default function ConsolePage() {
 
                 if (response.type === "transcript") {
                     const speakerToken = response.speaker === "agent" ? "🤖 Agent:" : "🎙️ You:";
-                    setTranscript((prev) => [...prev, `${speakerToken} ${response.text}`]);
+
+                    if (response.is_final) {
+                        setTranscript((prev) => [...prev, `${speakerToken} ${response.text}`]);
+                    } else {
+                        // Update partial transcript (replace last partial if exists)
+                        setTranscript((prev) => {
+                            const lastLine = prev[prev.length - 1];
+                            if (lastLine && lastLine.startsWith("🎙️ You:") && !lastLine.includes("✓")) {
+                                // Replace the last partial with updated partial
+                                return [...prev.slice(0, -1), `${speakerToken} ${response.text}`];
+                            }
+                            return [...prev, `${speakerToken} ${response.text}`];
+                        });
+                    }
 
                     if (response.speaker === "agent" && response.is_final) {
                         setAgentReply(response.text);
@@ -169,6 +321,12 @@ export default function ConsolePage() {
         setIsRecording(false);
         setTranscript((prev) => [...prev, "System: ⏹️ Recording stopped"]);
 
+        // Flush any playing audio
+        if (playerRef.current) {
+            playerRef.current.flush();
+            playerRef.current = null;
+        }
+
         if (streamRef.current) {
             const ctx = (streamRef.current as any)._audioContext;
             const proc = (streamRef.current as any)._processor;
@@ -201,6 +359,9 @@ export default function ConsolePage() {
                         <span className="flex items-center gap-1">
                             <div className={`w-2 h-2 rounded-full ${isRecording ? "bg-emerald-500 animate-pulse" : "bg-neutral-600"}`} />
                             {isRecording ? "SESSION ACTIVE" : "IDLE"}
+                        </span>
+                        <span className="flex items-center gap-1 text-neutral-600">
+                            STT: Deepgram Nova-3 • LLM: Groq • TTS: ElevenLabs
                         </span>
                     </div>
                 </div>
@@ -246,7 +407,10 @@ export default function ConsolePage() {
                 <div className="col-span-12 lg:col-span-8 bg-black border border-neutral-800 rounded-lg flex flex-col overflow-hidden shadow-sm">
                     <div className="bg-neutral-900 border-b border-neutral-800 px-4 py-2 flex items-center justify-between">
                         <span className="text-xs font-mono text-neutral-400">/var/log/transcript.log</span>
-                        <span className="text-[10px] bg-neutral-800 text-neutral-500 px-1.5 py-0.5 rounded">TAIL -F</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] bg-neutral-800 text-neutral-500 px-1.5 py-0.5 rounded">STREAMING</span>
+                            <span className="text-[10px] bg-emerald-900/50 text-emerald-400 px-1.5 py-0.5 rounded">BARGE-IN</span>
+                        </div>
                     </div>
                     <div className="flex-1 p-6 font-mono text-sm overflow-y-auto space-y-2">
                         {transcript.map((line, i) => (
@@ -268,6 +432,7 @@ export default function ConsolePage() {
                                 Waiting for input stream...
                             </div>
                         )}
+                        <div ref={transcriptEndRef} />
                     </div>
                 </div>
 
