@@ -37,8 +37,7 @@ CRITICAL SAFETY RULES:
 2. Never promise financial returns or guarantee investment success.
 
 RAG PROVENANCE:
-If you are provided with Property Context (RAG matches), you MUST use that context to answer. 
-When mentioning a specific property from the context, you MUST include its ID tag exactly like this: [Listing-123] in your response so the system can display it on the screen."""
+If you are provided with Property Context (RAG matches), you MUST use that context to answer."""
         self._set_system_prompt()
 
     def _set_system_prompt(self):

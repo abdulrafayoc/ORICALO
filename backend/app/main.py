@@ -63,6 +63,7 @@ app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)
 app.include_router(agency.router)
+app.include_router(rag_simple.router)
 
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
@@ -76,7 +77,6 @@ async def startup():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            print("✅ Database tables created successfully")
     except Exception as e:
         print(f"⚠️  Database connection failed: {e}")
         print("🔄 Continuing without database - some features may be limited")

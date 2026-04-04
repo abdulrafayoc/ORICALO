@@ -182,6 +182,7 @@ Got transription: 'سمجھا گی نا کہ مطلب اب ایک بن رہے ف
 [GroqSTT] Chunk VAD probability: 0.001 | Speech? False
 
 [GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+<<<<<<< HEAD
 [GroqSTT] Speech started (prob: 0.993)
 Endpointing after 1020ms silence, buffer: 19 chunks
 Sending to Groq API...
@@ -200,3 +201,920 @@ Got transription: 'موسیقی السلام علیکم. موسیقی موسیق
 Endpointing after 809ms silence, buffer: 13 chunks
 Sending to Groq API...
 Got transription: 'Tchau.'
+=======
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.672)
+Endpointing after 1031ms silence, buffer: 6 chunks
+Sending to Groq API...
+Got transription: '001.'
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.948)
+Endpointing after 1029ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'مجھے ڈی ایچ اے فیس فول ہر میں گھر چاہیے.'
+[GroqSTT] Speech started (prob: 0.541)
+Endpointing after 1021ms silence, buffer: 5 chunks
+Sending to Groq API...
+Got transription: 'my mestre'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.006 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.002 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.976)
+Endpointing after 1031ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA Lahore میں ایک گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.314)
+Endpointing after 1030ms silence, buffer: 5 chunks
+Sending to Groq API...
+Got transription: 'Let's use it.'
+[GroqSTT] Speech started (prob: 0.949)
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.913)
+Endpointing after 1022ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'موجھے DHA لاہور کے اندر دس مرلے کا گھر چاہئے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.002 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.005 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.417)
+Endpointing after 1021ms silence, buffer: 18 chunks
+Sending to Groq API...
+Got transription: 'Mujhe DHA, Lahore ke an'der eck ghar chahiye.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.003 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.968)
+Endpointing after 1021ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA, Lahore کے اندر گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.003 | Speech? False
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.006 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.002 | Speech? False
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.004 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.007 | Speech? False
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.002 | Speech? False
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.986)
+Endpointing after 1020ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA لاہور کے اندر ہی گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.332)
+Endpointing after 1021ms silence, buffer: 5 chunks
+Sending to Groq API...
+Got transription: 'Rain une Premier Oi.'
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.002 | Speech? False
+[GroqSTT] Speech started (prob: 0.744)
+Endpointing after 1041ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'مجھے ایک کمال کرتے ہیں.'
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.963)
+Endpointing after 1031ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA Lahore کے اندر ایک گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.608)
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 1021ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'مجھے ایک کنال تک کا گھر سے یہ تھا'
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.983)
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.092 | Speech? False
+Endpointing after 1020ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'یہ گھر اور کے اندر یہ ہونا چاہیے.'
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 800 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 850 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 900 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 950 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1000 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1050 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 1200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.880)
+Endpointing after 1030ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA لاہور کے اندرہ گھر چاہئے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.903)
+Endpointing after 1031ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'تقریباً ایک مجھے'
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.003 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.410)
+Endpointing after 1021ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'مجھے ایک نارے گھر لاہور کے نوچے گئے.'
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.999)
+Endpointing after 1021ms silence, buffer: 9 chunks
+Sending to Groq API...
+Got transription: 'ہاں جی دیکھنا چاہتا ہوں.'
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.998)
+Endpointing after 1030ms silence, buffer: 7 chunks
+Sending to Groq API...
+Got transription: 'Hande.'
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.999)
+Endpointing after 1019ms silence, buffer: 9 chunks
+Sending to Groq API...
+Got transription: 'On a dit des chrachatons.'
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 800 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Processed 850 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 900 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 950 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.748)
+Endpointing after 1031ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHAL اور کے اندر ایک گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.989)
+Endpointing after 1030ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA لہور کے اندر گھر چاہیے.'
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.997)
+Endpointing after 1019ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA Lahore کے اندر گھر چاہیے.'
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.005 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.984)
+Endpointing after 1019ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'DHA Lahore کے اندر ایک کنال گھر چاہیے'
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.997)
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 867ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Alexia, pretty dolly is gonna get'
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.965)
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 965ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: '相 creator is a founder of the'
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.996)
+Endpointing after 1020ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'مجھے DHA لاہور کے اندر ایک گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.056 | Speech? False
+[GroqSTT] Speech started (prob: 0.993)
+Endpointing after 999ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'DHA, Lahore کے نگھر ایک مرلے کو.'
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.971)
+Endpointing after 1020ms silence, buffer: 13 chunks
+Sending to Groq API...
+Got transription: 'Mujay, DHA, Lahore کے اندر ایک ہا چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.999)
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 1028ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'تقریباً دست کنال کا گھر ہو.'
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.748)
+Endpointing after 1019ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'ڈی ایچے کراچی کے اندر ایک گھر چاہیے'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.999)
+Endpointing after 1029ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'ڈیوچے لاہور کے اندرے گھر چاہیے'
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.961)
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 1031ms silence, buffer: 9 chunks
+Sending to Groq API...
+Got transription: 'Chwa djiciatom.'
+[GroqSTT] Speech started (prob: 0.958)
+Endpointing after 1011ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'میں کہہ رہا ہوں ہاں جی چاہتا ہوں'
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.955)
+Endpointing after 1030ms silence, buffer: 10 chunks
+Sending to Groq API...
+Got transription: 'ہاں جی چاہتا ہوں.'
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.996)
+Endpointing after 1029ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'مو یہ دونوں گھر کے بارے میں اور معنوات دیں'
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 800 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 850 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 900 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 950 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1000 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.936)
+Endpointing after 1020ms silence, buffer: 13 chunks
+Sending to Groq API...
+Got transcription: 'Mujudhiya Chale Lahore کے اندر ایک گھر چاہیے'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.977)
+Endpointing after 1020ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transcription: 'phase 1. Kyler M jogar , Carcur Display, Age 3 printed, Schair 3 Passage 1 byucks.'
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.978)
+Endpointing after 837ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transcription: ''
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.999)
+Endpointing after 1018ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transcription: 'If you can't name the 창, I'll get dhc inrecht from house again.'
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.954)
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 921ms silence, buffer: 36 chunks
+Sending to Groq API...
+Got transcription: 'I need to get a DHA home. Will I get a DHA home?'
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 800 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 850 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 900 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 950 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1000 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 1050 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.831)
+Endpointing after 1032ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'مجلوہ اور میں DHA میں پہنچے ہی ہے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.916)
+Endpointing after 1019ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'مجھے لہو اور ڈی اے جے میں درسمت لے کا خرچ ہے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.982)
+Endpointing after 1020ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: '베 size gatehappy Кар teach Carol.'
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.887)
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.002 | Speech? False
+Endpointing after 1029ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'Have a good fer You dance too.'
+[GroqSTT] Speech started (prob: 0.919)
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.061 | Speech? False
+Endpointing after 1021ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'Play, room table at the commitments of the audience who 수 in the audience are there. ghar, can draw the Schooner class at home? ediz gestural rights over here and back in the audience.'
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.988)
+Endpointing after 1029ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'ہاں جی مجھے چاہیے معلومات دی کر'
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.983)
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.987)
+Endpointing after 1020ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'ڈی ایچ اے لہور کے اندر بھمکھر کی گی مت آدھیں.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.751)
+Endpointing after 1019ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'Thatapi 뒤 nueva Pok Bennett K 성П'
+Endpointing after 1930ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'subject to DHL courtesy of Leaher.'
+Endpointing after 2340ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'Well Mujer DHL Horken The� Kaki感覺 property.'
+Endpointing after 3045ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'In Server, death is предложible.'
+Endpointing after 3718ms silence, buffer: 18 chunks
+Sending to Groq API...
+Got transription: 'I am so inclined to share my authority during DHL spirit and health care.'
+Endpointing after 4056ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'I 125 Pro Loserählt полностью.'
+Endpointing after 4400ms silence, buffer: 20 chunks
+Sending to Groq API...
+Got transription: 'Let me display DHL the building of the Personality clearly.'
+Endpointing after 4777ms silence, buffer: 20 chunks
+Sending to Groq API...
+Got transription: 'teach DOE's represent the second message.'
+Endpointing after 5487ms silence, buffer: 20 chunks
+Sending to Groq API...
+Got transription: 'DHL Lahore کے اندر گھر کی قیمت دو آدھے ہیں.'
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.997)
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.023 | Speech? False
+Endpointing after 1028ms silence, buffer: 13 chunks
+Sending to Groq API...
+Got transription: 'Traducido through its foreign access olive government closes up to Personal data.'
+Endpointing after 1732ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'I see the privacy of thousands of people.'
+Endpointing after 2071ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'I подар my house name on the outside desk.'
+Endpointing after 2470ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'Всем camera terence i01.'
+Endpointing after 3122ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'iLahoreCenter Nicholas Itiquity'
+Endpointing after 3810ms silence, buffer: 18 chunks
+Sending to Groq API...
+Got transription: 'I'll pay a spot for house of DCHE.'
+Endpointing after 4181ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Up to church from Lahore i.e from Lahore i.e contracts at mtch.'
+Endpointing after 4511ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Hindi'
+Endpointing after 4826ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Licely to our home forzone.'
+Endpointing after 5551ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Dr decisions of D thor сказes.'
+Endpointing after 6047ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'wo Quirkel'
+Endpointing after 6368ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'L but her pmung about knowormat.'
+Endpointing after 6923ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'I will down the house in the music.'
+Endpointing after 7254ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'ADHD or the lawurer cannot issue a medical interest anymore.'
+Endpointing after 7744ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Me and Dougherty land.'
+Endpointing after 8049ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Mujjah D.H. Lahore Gindrgargi Mujjah D.H. Lahore Gindrgargi Mujjah D.H.'
+Endpointing after 8373ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'In THE ITC-MetaBiva was also a notification from the'
+Endpointing after 8730ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'Can come back to the line of 24 hours at burning marketing?'
+Endpointing after 9238ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'I will give you the D.H.A.R.E.R.E.R.E.R.E.H.E.'
+Endpointing after 9622ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: ''
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.910)
+Endpointing after 1020ms silence, buffer: 13 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 1290ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 1530ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 1790ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 2040ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 6049ms silence, buffer: 18 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 9476ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 12724ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 15960ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 19378ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 22819ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 26054ms silence, buffer: 19 chunks
+Sending to Groq API...
+Got transription: 'BHA Lahore in the home.'
+Endpointing after 29778ms silence, buffer: 19 chunks
+Sending to Groq API...
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.960)
+Endpointing after 1030ms silence, buffer: 11 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 1375ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 1540ms silence, buffer: 13 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 1789ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 2050ms silence, buffer: 15 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 2387ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 2633ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 2820ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 3343ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 3503ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 3763ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 3929ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 4100ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 4349ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 4637ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 4878ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 5120ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 5427ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 5629ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 5888ms silence, buffer: 17 chunks
+Sending to Groq API...
+Got transription: 'DHL, how are you?'
+Endpointing after 6151ms silence, buffer: 17 chunks
+Sending to Groq API...
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.990)
+Endpointing after 1030ms silence, buffer: 14 chunks
+Sending to Groq API...
+Got transription: 'Mujer DHL Ahor کے اندر گھر چاہیے.'
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.479)
+Endpointing after 1021ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'Lóhor'
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.974)
+Endpointing after 1029ms silence, buffer: 8 chunks
+Sending to Groq API...
+Got transription: 'curry means gratitude.'
+[GroqSTT] Speech started (prob: 0.991)
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.986 | Speech? True
+Endpointing after 1020ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'Phase 6 DHA'
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.981)
+Endpointing after 1020ms silence, buffer: 10 chunks
+Sending to Groq API...
+Got transription: 'DHFA6'
+[GroqSTT] Speech started (prob: 0.976)
+Endpointing after 1030ms silence, buffer: 8 chunks
+Sending to Groq API...
+Got transription: '____...'
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.525)
+Endpointing after 1020ms silence, buffer: 10 chunks
+Sending to Groq API...
+Got transription: 'DHA Phase 6'
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+
+[GroqSTT] Starting audio stream loop for whisper-large-v3-turbo
+[GroqSTT] Speech started (prob: 0.994)
+Endpointing after 1019ms silence, buffer: 12 chunks
+Sending to Groq API...
+Got transription: 'Marchриar'
+[GroqSTT] Speech started (prob: 0.989)
+[GroqSTT] Processed 50 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 1030ms silence, buffer: 28 chunks
+Sending to Groq API...
+Got transription: 'I need a house in D.H.E. Keraji.'
+[GroqSTT] Processed 100 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.995)
+[GroqSTT] Processed 150 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+Endpointing after 813ms silence, buffer: 16 chunks
+Sending to Groq API...
+Got transription: 'Kirači media chai'
+[GroqSTT] Processed 200 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.001 | Speech? False
+[GroqSTT] Speech started (prob: 0.879)
+[GroqSTT] Processed 250 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.106 | Speech? False
+Endpointing after 1031ms silence, buffer: 6 chunks
+Sending to Groq API...
+Got transription: 'Hi.'
+[GroqSTT] Speech started (prob: 0.989)
+[GroqSTT] Processed 300 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.004 | Speech? False
+Endpointing after 1000ms silence, buffer: 30 chunks
+Sending to Groq API...
+Got transription: 'جی ہاں معلومات دے دیں'
+[GroqSTT] Processed 350 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 400 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 450 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.438)
+Endpointing after 1029ms silence, buffer: 6 chunks
+Sending to Groq API...
+Got transription: 'To eat us.'
+[GroqSTT] Speech started (prob: 0.991)
+[GroqSTT] Processed 500 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.131 | Speech? False
+Endpointing after 972ms silence, buffer: 32 chunks
+Sending to Groq API...
+Got transription: 'Askeri 11 Lahore Askeri 11 Lahore'
+[GroqSTT] Processed 550 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Processed 600 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.868)
+Endpointing after 1019ms silence, buffer: 7 chunks
+Sending to Groq API...
+Got transription: 'üm'
+[GroqSTT] Processed 650 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+[GroqSTT] Speech started (prob: 0.998)
+Endpointing after 1020ms silence, buffer: 20 chunks
+Sending to Groq API...
+Got transription: 'Right. That is a laugh mett.'
+[GroqSTT] Processed 700 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.003 | Speech? False
+[GroqSTT] Processed 750 audio chunks. Last chunk length: 8192
+[GroqSTT] Chunk VAD probability: 0.000 | Speech? False
+>>>>>>> 49a6161bb2ef6d56ea51b1a32b184b2bcdce50be
