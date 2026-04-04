@@ -87,7 +87,7 @@ class ElevenLabsTTS:
         url = f"{self._base_url}/stream"
         with requests.post(url, json=self._build_payload(text), headers=self._headers, stream=True) as response:
             response.raise_for_status()
-            for chunk in response.iter_content(chunk_size=4096):
+            for chunk in response.iter_content(chunk_size=16384):
                 if chunk:
                     yield chunk
 
@@ -125,7 +125,7 @@ class ElevenLabsTTS:
                     headers=self._headers,
                 ) as response:
                     response.raise_for_status()
-                    async for chunk in response.aiter_bytes(chunk_size=4096):
+                    async for chunk in response.aiter_bytes(chunk_size=16384):
                         if chunk:
                             yield chunk
         else:
