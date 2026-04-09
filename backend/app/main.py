@@ -53,7 +53,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers=headers,
     )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, rag_simple
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, rag_simple, crm_integration
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
@@ -64,6 +64,7 @@ app.include_router(valuation.router)
 app.include_router(agents.router)
 app.include_router(agency.router)
 app.include_router(rag_simple.router)
+app.include_router(crm_integration.router)
 
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
@@ -73,6 +74,9 @@ async def startup():
     # Import all models so Base.metadata knows about them
     import app.db_tables.agent  # noqa
     import app.db_tables.listing  # noqa
+    import app.db_tables.crm_contact  # noqa
+    import app.db_tables.crm_call  # noqa
+    import app.db_tables.crm_task  # noqa
     
     try:
         async with engine.begin() as conn:
