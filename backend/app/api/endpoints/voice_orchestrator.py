@@ -31,7 +31,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
 from stt import Ear_hf
 from llm import get_chatbot
 from tts import get_tts
-from rag.retriever import query_rag
 
 router = APIRouter()
 
@@ -141,26 +140,14 @@ async def voice_agent_endpoint(websocket: WebSocket):
 
             await _set_state(AgentState.PROCESSING, "Thinking...")
 
-            # --- 2. RAG Retrieval (async, non-blocking) ---
-            try:
-                rag_results = await asyncio.to_thread(query_rag, user_text, top_k=3)
-                context_str = "\n".join([
-                    f"[Listing-{r['id']}] {r.get('metadata', {}).get('title', r.get('text', '')[:80])}: "
-                    f"{r.get('metadata', {}).get('price', 'N/A')} - {r.get('metadata', {}).get('location', '')}"
-                    for r in rag_results
-                ]) if rag_results else None
-            except Exception as e:
-                print(f"[Orchestrator] RAG error: {e}")
-                context_str = None
-
-            # --- 3. Stream LLM tokens → Sentence Buffer → TTS → Audio Out ---
+            # --- 2. Advanced LLM Tool Calling Stream → Sentence Buffer → TTS → Audio Out ---
             await _set_state(AgentState.SPEAKING, "Speaking...")
 
             full_reply = ""
             token_buffer = ""
             first_audio_sent = False
 
-            async for token in llm_engine.async_stream_response(user_text, context=context_str):
+            async for token in llm_engine.async_stream_response(user_text):
                 if interrupt_event.is_set():
                     break
 

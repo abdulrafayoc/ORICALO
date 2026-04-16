@@ -53,7 +53,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers=headers,
     )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, crm_integration
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
@@ -63,6 +63,7 @@ app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)
 app.include_router(agency.router)
+app.include_router(crm_integration.router, prefix="/crm")
 
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
@@ -76,7 +77,6 @@ async def startup():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            print("✅ Database tables created successfully")
     except Exception as e:
         print(f"⚠️  Database connection failed: {e}")
         print("🔄 Continuing without database - some features may be limited")
