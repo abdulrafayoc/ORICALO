@@ -66,4 +66,5 @@ deepgram-sdk>=3.0.0
 # TTS Engines
 edge-tts>=6.1.0
 elevenlabs>=1.0.0
+python-socketio[asyncio_client]>=5.8.0  # Uplift AI WebSocket TTS
 

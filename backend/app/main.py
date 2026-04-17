@@ -68,18 +68,22 @@ app.include_router(crm_integration.router, prefix="/crm")
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
 async def startup():
-    from app.db.session import engine
+    from app.db.session import init_db, engine
     from app.db.base import Base
-    # Import all models so Base.metadata knows about them
-    import app.db_tables.agent  # noqa
+    import app.db_tables.agent    # noqa — registers models with Base
     import app.db_tables.listing  # noqa
-    
+
+    # 1. Probe remote DBs and promote engine (with timeouts + SQLite fallback)
+    await init_db()
+
+    # 2. Create tables on whichever engine won
+    from app.db.session import engine as active_engine
     try:
-        async with engine.begin() as conn:
+        async with active_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     except Exception as e:
-        print(f"⚠️  Database connection failed: {e}")
-        print("🔄 Continuing without database - some features may be limited")
+        print(f"⚠️  Table creation failed: {e}")
+        print("🔄 Continuing without database — some features may be limited")
 
 @app.get("/")
 async def root():

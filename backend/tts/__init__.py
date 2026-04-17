@@ -1,14 +1,14 @@
 """
 TTS Module for ORICALO Voice Agent.
 
-Provides a factory function to switch between ElevenLabs and Edge-TTS
+Provides a factory function to switch between ElevenLabs, Uplift AI, and Edge-TTS
 based on the TTS_BACKEND env var.
 
 Async Streaming Contract:
-  All TTS engines should support one of these methods for the streaming pipeline:
-  - async_synthesize_stream(text) -> AsyncGenerator[bytes]  (preferred, lowest latency)
-  - _synthesize_async(text) -> bytes  (Edge TTS native async)
-  - synthesize(text) -> bytes  (sync fallback, wrapped in asyncio.to_thread)
+  All TTS engines support async_synthesize_stream(text) -> AsyncGenerator[bytes].
+  Engines may additionally support:
+  - async_synthesize(text) -> bytes  (full collection)
+  - synthesize(text) -> bytes        (sync fallback)
 """
 
 import os
@@ -24,16 +24,19 @@ def get_tts(
     """Factory function for Text-to-Speech engines."""
     backend = (backend or DEFAULT_BACKEND).lower().strip()
     
-    if backend in ("elevenlabs", "api", "eleven"):
+    if backend in ("elevenlabs", "eleven"):
         from .tts_elevenlabs import ElevenLabsTTS
         return ElevenLabsTTS(**kwargs)
+    
+    elif backend in ("uplift", "upliftai"):
+        from .tts_uplift import UpliftTTS
+        return UpliftTTS(**kwargs)
     
     elif backend in ("edge", "local", "edge-tts"):
         from .tts_edge import EdgeTTS
         return EdgeTTS(**kwargs)
     
     else:
-        raise ValueError(f"Unknown TTS backend: {backend}. Use 'elevenlabs' or 'edge'.")
+        raise ValueError(f"Unknown TTS backend: {backend}. Use 'elevenlabs', 'uplift', or 'edge'.")
 
 __all__ = ["get_tts"]
-

@@ -140,12 +140,40 @@ async def voice_agent_endpoint(websocket: WebSocket):
 
             await _set_state(AgentState.PROCESSING, "Thinking...")
 
-            # --- 2. Advanced LLM Tool Calling Stream → Sentence Buffer → TTS → Audio Out ---
+            # --- 2. LLM Tool Calling Stream → Sentence Buffer → TTS → Audio Out ---
             await _set_state(AgentState.SPEAKING, "Speaking...")
 
             full_reply = ""
             token_buffer = ""
             first_audio_sent = False
+
+            async def _tts_sentence(text: str) -> bool:
+                """
+                Synthesize one sentence. Returns False if interrupted mid-stream.
+                Properly closes the TTS generator on cancellation / interrupt
+                so no orphaned Uplift socket requests are left open.
+                """
+                nonlocal first_audio_sent
+                gen = tts_engine.async_synthesize_stream(text)
+                try:
+                    async for audio_chunk in gen:
+                        if interrupt_event.is_set():
+                            return False
+                        if not audio_chunk:
+                            continue
+                        audio_b64 = base64.b64encode(audio_chunk).decode("utf-8")
+                        await _send_json({
+                            "type": "audio_chunk",
+                            "data": audio_b64,
+                            "is_first": not first_audio_sent,
+                        })
+                        first_audio_sent = True
+                    return not interrupt_event.is_set()
+                except asyncio.CancelledError:
+                    await gen.aclose()   # tell Uplift to cancel the socket request
+                    raise
+                finally:
+                    await gen.aclose()   # idempotent; closes if not already closed
 
             async for token in llm_engine.async_stream_response(user_text):
                 if interrupt_event.is_set():
@@ -154,91 +182,27 @@ async def voice_agent_endpoint(websocket: WebSocket):
                 full_reply += token
                 token_buffer += token
 
-                # Check for complete sentences
                 sentences, token_buffer = extract_sentences(token_buffer)
 
                 for sentence in sentences:
                     if interrupt_event.is_set():
                         break
-
-                    # Synthesize this sentence and stream audio chunks
                     try:
-                        if hasattr(tts_engine, 'async_synthesize_stream'):
-                            # ElevenLabs async streaming path
-                            audio_chunks = []
-                            async for audio_chunk in tts_engine.async_synthesize_stream(sentence):
-                                if interrupt_event.is_set():
-                                    break
-
-                                audio_b64 = base64.b64encode(audio_chunk).decode('utf-8')
-                                await _send_json({
-                                    "type": "audio_chunk",
-                                    "data": audio_b64,
-                                    "is_first": not first_audio_sent,
-                                })
-                                first_audio_sent = True
-                                audio_chunks.append(audio_chunk)
-
-                            if not interrupt_event.is_set():
-                                spoken_text_buffer.append(sentence)
-
-                        elif hasattr(tts_engine, '_synthesize_async'):
-                            # Edge TTS async (full sentence, not chunked)
-                            audio_bytes = await tts_engine._synthesize_async(sentence)
-                            if not interrupt_event.is_set():
-                                audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                                await _send_json({
-                                    "type": "audio_chunk",
-                                    "data": audio_b64,
-                                    "is_first": not first_audio_sent,
-                                })
-                                first_audio_sent = True
-                                spoken_text_buffer.append(sentence)
-                        else:
-                            # Sync fallback
-                            audio_bytes = await asyncio.to_thread(tts_engine.synthesize, sentence)
-                            if not interrupt_event.is_set():
-                                audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                                await _send_json({
-                                    "type": "audio_chunk",
-                                    "data": audio_b64,
-                                    "is_first": not first_audio_sent,
-                                })
-                                first_audio_sent = True
-                                spoken_text_buffer.append(sentence)
-
+                        completed = await _tts_sentence(sentence)
+                        if completed:
+                            spoken_text_buffer.append(sentence)
                     except asyncio.CancelledError:
                         raise
                     except Exception as e:
-                        print(f"[Orchestrator] TTS error for sentence: {e}")
+                        print(f"[Orchestrator] TTS error: {e}")
 
-            # Flush remaining buffer as final sentence
+            # Flush remaining buffer (dangling partial sentence after LLM stream ends)
             if token_buffer.strip() and not interrupt_event.is_set():
                 remaining = token_buffer.strip()
                 try:
-                    if hasattr(tts_engine, 'async_synthesize_stream'):
-                        async for audio_chunk in tts_engine.async_synthesize_stream(remaining):
-                            if interrupt_event.is_set():
-                                break
-                            audio_b64 = base64.b64encode(audio_chunk).decode('utf-8')
-                            await _send_json({
-                                "type": "audio_chunk",
-                                "data": audio_b64,
-                                "is_first": not first_audio_sent,
-                            })
-                            first_audio_sent = True
-                        if not interrupt_event.is_set():
-                            spoken_text_buffer.append(remaining)
-                    elif hasattr(tts_engine, '_synthesize_async'):
-                        audio_bytes = await tts_engine._synthesize_async(remaining)
-                        if not interrupt_event.is_set():
-                            audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-                            await _send_json({
-                                "type": "audio_chunk",
-                                "data": audio_b64,
-                                "is_first": not first_audio_sent,
-                            })
-                            spoken_text_buffer.append(remaining)
+                    completed = await _tts_sentence(remaining)
+                    if completed:
+                        spoken_text_buffer.append(remaining)
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
@@ -258,7 +222,6 @@ async def voice_agent_endpoint(websocket: WebSocket):
 
         except asyncio.CancelledError:
             print("[Orchestrator] Pipeline cancelled (barge-in)")
-            # Truncate LLM history to what was actually spoken
             actually_spoken = " ".join(spoken_text_buffer)
             if hasattr(llm_engine, 'truncate_last_response'):
                 llm_engine.truncate_last_response(actually_spoken)
@@ -272,8 +235,10 @@ async def voice_agent_endpoint(websocket: WebSocket):
             })
 
         finally:
-            if not interrupt_event.is_set():
-                await _set_state(AgentState.LISTENING, "Listening...")
+            # ALWAYS reset to LISTENING — regardless of interrupt or cancellation.
+            # handle_interrupt() also sets this, but we must not rely on it exclusively
+            # to avoid a state machine freeze if the two paths race.
+            await _set_state(AgentState.LISTENING, "Listening...")
 
     # --- Barge-In Handler ---
     async def handle_interrupt():
@@ -332,23 +297,24 @@ async def voice_agent_endpoint(websocket: WebSocket):
                     if not text:
                         continue
 
-                    # Trigger barge-in if we get actual text while speaking
-                    # This prevents background noise from causing false interruptions
-                    if state == AgentState.SPEAKING:
+                    # Trigger barge-in ONLY on final transcripts with actual content.
+                    # Interim fragments are too noisy — they would cancel the agent
+                    # mid-sentence on every partial word recognition.
+                    if state == AgentState.SPEAKING and is_final:
                         print(f"[Orchestrator] BARGE-IN detected on text: '{text}'")
                         await handle_interrupt()
 
                     if is_final:
-                        # Launch new pipeline task
+                        # Launch new pipeline task (barge-in already cleared old tasks above)
                         pipeline_task = asyncio.create_task(run_pipeline(text))
                         active_pipeline_tasks.append(pipeline_task)
 
-                        # Clean up completed tasks
+                        # Prune completed tasks from the list
                         active_pipeline_tasks = [
                             t for t in active_pipeline_tasks if not t.done()
                         ]
                     else:
-                        # Partial transcript — send to UI for live display
+                        # Partial transcript — send to UI for live display only
                         await _send_json({
                             "type": "transcript",
                             "text": text,
