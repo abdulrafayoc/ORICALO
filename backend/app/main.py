@@ -53,7 +53,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers=headers,
     )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, crm_integration
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, crm_integration, crm_local
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
@@ -63,7 +63,8 @@ app.include_router(dialogue.router)
 app.include_router(valuation.router)
 app.include_router(agents.router)
 app.include_router(agency.router)
-app.include_router(crm_integration.router, prefix="/crm")
+app.include_router(crm_integration.router, prefix="/crm_webhook") # rename old mock to webhook
+app.include_router(crm_local.router, prefix="/crm")
 
 # --- Auto-create database tables on startup ---
 @app.on_event("startup")
@@ -72,6 +73,7 @@ async def startup():
     from app.db.base import Base
     import app.db_tables.agent    # noqa — registers models with Base
     import app.db_tables.listing  # noqa
+    import app.db_tables.crm      # noqa
 
     # 1. Probe remote DBs and promote engine (with timeouts + SQLite fallback)
     await init_db()

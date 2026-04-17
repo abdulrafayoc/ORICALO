@@ -8,7 +8,9 @@ import {
     Terminal,
     FileText,
     Search,
-    Calculator
+    Calculator,
+    Users,
+    CheckSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,8 @@ const NAV_ITEMS = [
     { name: "RAG Search", href: "/rag", icon: Search },
     { name: "Price Prediction", href: "/avm", icon: Calculator },
     { name: "Analytics", href: "/analytics", icon: FileText },
+    { name: "CRM Leads", href: "/crm", icon: Users },
+    { name: "Tasks", href: "/crm/tasks", icon: CheckSquare },
 ];
 
 export function Sidebar() {

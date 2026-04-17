@@ -361,7 +361,6 @@ export default function ConsolePage() {
                             {isRecording ? "SESSION ACTIVE" : "IDLE"}
                         </span>
                         <span className="flex items-center gap-1 text-neutral-600">
-                            STT: Deepgram Nova-3 • LLM: Groq • TTS: ElevenLabs
                         </span>
                     </div>
                 </div>

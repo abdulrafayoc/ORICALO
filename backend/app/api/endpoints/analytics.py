@@ -4,6 +4,9 @@ from typing import List
 import re
 import asyncio
 from llm import get_chatbot
+import uuid
+from app.db.session import AsyncSessionLocal
+from app.db_tables.crm import Lead, CallSession, ActionItem
 
 router = APIRouter()
 
@@ -88,16 +91,49 @@ Conversation:
         qualification_status=status
     )
     
-    # Asynchronously trigger the CRM integration webhook
-    async def _post_crm():
-        import httpx
+    # Asynchronously trigger the CRM local DB insertion
+    async def _save_to_local_crm():
         try:
-            async with httpx.AsyncClient() as client:
-                await client.post("http://127.0.0.1:8000/crm/sync_call", json=payload.dict(), timeout=5.0)
+            async with AsyncSessionLocal() as db:
+                # 1. Create a generic Lead (In future, look up by phone if available)
+                new_lead = Lead(
+                    name="Unknown Caller",
+                    status="HOT" if payload.lead_score >= 70 else ("WARM" if payload.lead_score >= 40 else "COLD"),
+                    needs_human=(payload.lead_score >= 70),  # For MVP, hot leads need human
+                    budget=payload.budget,
+                    location_pref=payload.location_preferences,
+                    timeline=payload.timeline,
+                    lead_score=payload.lead_score
+                )
+                db.add(new_lead)
+                await db.commit()
+                await db.refresh(new_lead)
+                
+                # 2. Create the CallSession
+                new_session = CallSession(
+                    id=str(uuid.uuid4()),
+                    lead_id=new_lead.id,
+                    direction="INBOUND",
+                    transcript=payload.redacted_transcript,
+                    summary=payload.summary
+                )
+                db.add(new_session)
+                
+                # 3. Create an ActionItem if it's a good lead
+                if new_lead.needs_human:
+                    action = ActionItem(
+                        lead_id=new_lead.id,
+                        task_type="HUMAN_CALL",
+                        description=f"Follow up with this Hot Lead. Summary: {payload.summary}"
+                    )
+                    db.add(action)
+                    
+                await db.commit()
+                print(f"✅ [Analytics] Saved Call & Lead to Local CRM! (Lead ID: {new_lead.id})")
         except Exception as e:
-            print(f"[Analytics] CRM Webhook trigger failed: {e}")
+            print(f"❌ [Analytics] Local CRM DB insertion failed: {e}")
             
-    asyncio.create_task(_post_crm())
+    asyncio.create_task(_save_to_local_crm())
 
     return payload
 

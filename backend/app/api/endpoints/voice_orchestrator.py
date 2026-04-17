@@ -382,3 +382,19 @@ async def voice_agent_endpoint(websocket: WebSocket):
             pass
 
         print("[Orchestrator] Session cleaned up")
+        
+        # --- Trigger Analytics and CRM Save ---
+        if llm_engine.history and len(llm_engine.history) > 2:
+            print("[Orchestrator] Triggering call analytics and CRM save...")
+            try:
+                from app.api.endpoints.analytics import process_call, CallTranscript
+                # Filter out system prompts and tool messages for the transcript
+                clean_history = []
+                for msg in llm_engine.history:
+                    if msg["role"] in ("user", "assistant") and msg.get("content"):
+                        clean_history.append({"role": msg["role"], "text": msg["content"]})
+                
+                if clean_history:
+                    asyncio.create_task(process_call(CallTranscript(history=clean_history)))
+            except Exception as e:
+                print(f"[Orchestrator] Failed to start analytics task: {e}")
