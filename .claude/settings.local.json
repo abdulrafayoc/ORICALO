@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find /Users/huzaifa/Desktop/\"FYP \\( PLEASE MUJHE CHOR DO \\)\"/ORICALO/backend -maxdepth 2 -type f -name \"*.py\")",
+      "Bash(find:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip --version)",
+      "Bash(npm --version)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(pip install:*)",
+      "Bash(npm install:*)",
+      "Bash(python -c \":*)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(cat '/Users/huzaifa/Desktop/FYP \\( PLEASE MUJHE CHOR DO \\)/ORICALO/models/model_utils.py')",
+      "Bash(python -m pytest tests/unit/test_redact_pii.py tests/unit/test_schemas.py -v --tb=short)",
+      "Bash(python -m pytest tests/unit/test_valuation_helpers.py tests/unit/test_dialogue_helpers.py tests/unit/test_voice_orchestrator_helpers.py -v --tb=short)",
+      "Bash(python -m pytest tests/unit/ tests/integration/ -v --tb=short)"
+    ]
+  }
+}
