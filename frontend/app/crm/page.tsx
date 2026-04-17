@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users, Filter, ArrowRight, UserCircle2, Phone, Briefcase, Zap, AlertCircle } from "lucide-react";
+import { Users, Filter, ArrowRight, UserCircle2, Phone, Briefcase, Zap, AlertCircle, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { LeadModal } from "./components/LeadModal";
 
 interface Lead {
   id: number;
@@ -23,8 +24,9 @@ interface Lead {
 export default function CRMDashboard() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
+  const fetchLeads = () => {
     fetch("http://127.0.0.1:8000/crm/leads")
       .then(res => res.json())
       .then(data => {
@@ -35,6 +37,10 @@ export default function CRMDashboard() {
         console.error("Failed to fetch leads", err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchLeads();
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -94,9 +100,14 @@ export default function CRMDashboard() {
         <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.3}} className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
           <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900">
             <h2 className="text-lg font-medium text-white">Prospects Roster</h2>
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm rounded-md transition border border-neutral-700">
-              <Filter className="w-4 h-4"/> Filter
-            </button>
+            <div className="flex gap-2">
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white text-sm rounded-md transition border border-neutral-700">
+                <Filter className="w-4 h-4"/> Filter
+              </button>
+              <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md transition shadow-md">
+                <Plus className="w-4 h-4"/> Add Prospect
+              </button>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -175,6 +186,16 @@ export default function CRMDashboard() {
             </table>
           </div>
         </motion.div>
+
+        {showModal && (
+          <LeadModal 
+            onClose={() => setShowModal(false)} 
+            onSave={() => {
+              setShowModal(false);
+              fetchLeads();
+            }} 
+          />
+        )}
 
       </div>
     </div>

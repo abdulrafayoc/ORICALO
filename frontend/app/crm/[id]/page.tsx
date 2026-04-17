@@ -2,9 +2,11 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, UserCircle2, Phone, Mail, Calendar, MapPin, Building, Flag, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, UserCircle2, Phone, Mail, Calendar, MapPin, Building, Flag, CheckCircle2, Trash2, Edit2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { LeadModal } from "../components/LeadModal";
+import { useRouter } from "next/navigation";
 
 interface ActionItem {
   id: number;
@@ -41,11 +43,16 @@ interface LeadDetail {
 
 export default function LeadProfile({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const router = useRouter();
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "timeline">("overview");
 
-  useEffect(() => {
+  const [isCalling, setIsCalling] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchLead = () => {
     fetch(`http://127.0.0.1:8000/crm/leads/${resolvedParams.id}`)
       .then(res => res.json())
       .then(data => {
@@ -56,6 +63,10 @@ export default function LeadProfile({ params }: { params: Promise<{ id: string }
         console.error("Failed to fetch lead", err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchLead();
   }, [resolvedParams.id]);
 
   if (loading) {
@@ -73,15 +84,79 @@ export default function LeadProfile({ params }: { params: Promise<{ id: string }
     return "text-blue-400 bg-blue-400/10 border-blue-500/20";
   };
 
+  const handleOutboundCall = async () => {
+    if (!lead?.phone_number) return alert("No phone number available");
+    
+    // In production, you'd auto-resolve your ngrok URL via an env variable. 
+    // Here we'll prompt the user so it works dynamically if their ngrok domain changes.
+    const pubUrl = prompt("Enter your public domain (e.g., my-ngrok.io) for the Twilio webhook:");
+    if (!pubUrl) return;
+
+    setIsCalling(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/crm/leads/${lead.id}/outbound`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_url: pubUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) alert("Error initiating call: " + (data.detail || JSON.stringify(data)));
+      else alert("Call initiated! Call SID: " + data.call_sid);
+    } catch (e: any) {
+      alert("Failed to initiate call: " + e.message);
+    }
+    setIsCalling(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to permanently delete this lead? All call transcripts will be destroyed.")) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/crm/leads/${lead.id}`, { method: "DELETE" });
+      if (res.ok) router.push("/crm");
+      else alert("Failed to delete lead");
+    } catch (e: any) {
+      alert("Error deleting lead: " + e.message);
+    }
+    setIsDeleting(false);
+  };
+
   return (
     <div className="flex-1 p-8 overflow-y-auto">
       <div className="max-w-5xl mx-auto space-y-8">
         
-        {/* Navigation */}
-        <Link href="/crm" className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition group">
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Prospects
-        </Link>
+        {/* Navigation & Actions */}
+        <div className="flex items-center justify-between">
+          <Link href="/crm" className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Back to Prospects
+          </Link>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setShowEditModal(true)} 
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition text-neutral-300 hover:text-white bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 shadow-lg">
+              <Edit2 className="w-4 h-4" />
+              Edit
+            </button>
+            <button 
+              onClick={handleDelete} 
+              disabled={isDeleting}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 border border-red-500/20 shadow-lg">
+              <Trash2 className="w-4 h-4" />
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
+            <button 
+              onClick={handleOutboundCall} 
+              disabled={isCalling || !lead.phone_number}
+              className={cn("flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition shadow-lg", 
+                isCalling || !lead.phone_number ? "bg-neutral-800 text-neutral-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white"
+              )}>
+              <Phone className="w-4 h-4" />
+              {isCalling ? "Dialing..." : "Initiate AI Call"}
+            </button>
+          </div>
+        </div>
 
         {/* Profile Header Block */}
         <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 lg:p-8 flex flex-col md:flex-row gap-8 relative overflow-hidden">
@@ -203,6 +278,17 @@ export default function LeadProfile({ params }: { params: Promise<{ id: string }
              </div>
           </motion.div>
         </div>
+
+        {showEditModal && (
+          <LeadModal 
+            lead={lead}
+            onClose={() => setShowEditModal(false)} 
+            onSave={() => {
+              setShowEditModal(false);
+              fetchLead();
+            }} 
+          />
+        )}
 
       </div>
     </div>
