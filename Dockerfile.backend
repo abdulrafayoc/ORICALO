@@ -19,7 +19,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code
 COPY backend /app/backend
-COPY models /app/models
 
 # Set environment variables
 ENV PYTHONPATH=/app/backend

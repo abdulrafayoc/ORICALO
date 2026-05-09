@@ -16,7 +16,7 @@ services:
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
     volumes:
       - ./backend/data:/app/backend/data
-      - ./models:/app/models
+      - ./backend/models:/app/backend/models
     restart: unless-stopped
 
   frontend:
