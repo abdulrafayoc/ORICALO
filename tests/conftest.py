@@ -26,12 +26,15 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from httpx import AsyncClient, ASGITransport
 
+# pyre-ignore [missing-import]
 from app.db.base import Base
+# pyre-ignore [missing-import]
 from app.db.session import get_db
 
 # Import all models so Base.metadata knows about them
 import app.db_tables.agent  # noqa
 import app.db_tables.listing  # noqa
+import app.db_tables.crm  # noqa
 
 
 # ── In-memory SQLite engine for tests ────────────────────────────────────────
@@ -50,9 +53,11 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def setup_database():
-    """Create all tables before each test, drop after."""
+    """Create all tables before each test, drop after.
+    Used by the `client` fixture — not autouse to avoid conflicting with sync unit tests.
+    """
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -66,13 +71,14 @@ async def _override_get_db():
 
 
 @pytest.fixture
-async def client():
+async def client(setup_database):
     """Async HTTPX test client against the FastAPI app with test DB."""
+    # pyre-ignore [missing-import]
     from app.main import app
 
     app.dependency_overrides[get_db] = _override_get_db
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(transport=transport, base_url="http://test", follow_redirects=True) as ac:
         yield ac
     app.dependency_overrides.clear()
 
