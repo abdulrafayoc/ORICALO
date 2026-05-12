@@ -1,0 +1,31 @@
+\chapter{Project Requirements}
+\label{ch:requirements}
+
+This chapter outlines the functional and non-functional requirements for the ORICALO Urdu-Native Voice Agent.
+
+\section{Core Use Cases}
+
+\textbf{1. Inbound Property Inquiry Call}: A customer initiates a voice session. The system transcribes the Urdu speech, retrieves relevant property listings (RAG) and price estimates (AVM), and synthesizes a natural Urdu response. The conversation state is maintained, and upon completion, the transcript is saved, PII is redacted, and the lead is scored in the CRM.
+
+\textbf{2. Outbound Lead Qualification}: An agent triggers a call from the CRM dashboard. Twilio routes the call to the ORICALO Voice Orchestrator, which conducts an autonomous qualification conversation, extracting budget and timeline, and updating the CRM status automatically.
+
+\textbf{3. Property Price Estimation}: A user requests a valuation. The system normalizes the area metric (Marla to SqFt) based on society standards (e.g., DHA vs. standard) and utilizes an ML-model or heuristic fallback to return a predicted price range.
+
+\textbf{4. Post-Call Analytics}: Following any call, the system asynchronously extracts intent, redacts sensitive information (CNIC, phone numbers), calculates a 0--100 lead score using an LLM, and creates actionable tasks for human supervisors if the lead is ``Hot''.
+
+\section{Functional Requirements (FR)}
+
+\begin{itemize}
+    \item \textbf{ASR \& TTS}: Stream Urdu transcription with $<20\%$ WER and synthesize responses with low-latency barge-in support.
+    \item \textbf{Dialogue \& RAG}: Maintain multi-turn context, extract location entities, and ground responses using ChromaDB top-$K$ semantic search.
+    \item \textbf{Orchestrator}: Maintain a LISTENING $\rightarrow$ PROCESSING $\rightarrow$ SPEAKING state machine that instantly cancels tasks on user interruption.
+    \item \textbf{CRM \& Analytics}: Persist all interactions in PostgreSQL, redact PII with $>95\%$ recall, and manage automated follow-ups.
+\end{itemize}
+
+\section{Non-Functional Requirements (NFR)}
+
+\begin{itemize}
+    \item \textbf{Performance}: Deliver the first TTS audio chunk within 1s of LLM sentence completion, and AVM API response under 500ms.
+    \item \textbf{Reliability}: Graceful degradation to SQLite if PostgreSQL fails, and robust WebSocket cleanup during barge-in events.
+    \item \textbf{Security}: Exclusive use of environment variables for API keys and regex-based PII scrubbing before database persistence.
+\end{itemize}

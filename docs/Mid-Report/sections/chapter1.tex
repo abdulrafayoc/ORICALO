@@ -1,0 +1,82 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+This document presents the Iteration 2 deliverables for the Urdu-Native Voice Agent for Real Estate Marketing in Pakistan. Building upon the ASR foundation established in Iteration 1, this iteration focuses on integrating the LLM-based dialogue management, Retrieval-Augmented Generation (RAG) pipeline, and price prediction capabilities.
+
+\section{Problem Statement}
+
+Pakistan's real estate sector depends heavily on phone conversations conducted primarily in Urdu and Roman Urdu. Existing commercial voice AI solutions are predominantly English-centric and perform poorly with Urdu grammar, dialectal variations, and local conversational norms. This creates a significant gap for Urdu-native voice automation that can handle the peculiarities of the Pakistani real estate domain.
+
+The current limitations include:
+\begin{itemize}
+    \item Poor transcription accuracy for Urdu speech
+    \item Unnatural speech synthesis lacking Urdu prosody
+    \item Lack of domain-specific knowledge grounding for real estate
+    \item Inadequate handling of Roman Urdu inputs
+\end{itemize}
+
+These limitations force real estate businesses to rely on human agents for routine inquiries, leading to higher operational costs and limited scalability. Our software addresses these challenges by providing an open-source, locally deployable Urdu voice agent that can naturally converse about property information, qualify leads, and provide price estimates while ensuring ethical data handling and user privacy.
+
+\section{Scope}
+
+The scope of this project encompasses the development of an end-to-end proof-of-concept Urdu-Native Voice Agent for real estate marketing applications. The system will automate both inbound customer inquiries and outbound lead generation calls through natural Urdu conversations.
+
+The platform integrates six core modules:
+\begin{enumerate}
+    \item \textbf{Automatic Speech Recognition (ASR)}: Optimized for Urdu and Roman Urdu
+    \item \textbf{LLM-based Dialogue Management}: Contextual response generation
+    \item \textbf{Retrieval-Augmented Generation (RAG)}: Property data access and grounding
+    \item \textbf{Price Prediction Analytics}: ML-based property valuation
+    \item \textbf{Text-to-Speech (TTS)}: Urdu speech synthesis (Iteration 3)
+    \item \textbf{Call Analytics}: Performance monitoring and compliance
+\end{enumerate}
+
+The solution leverages open-source technologies and is containerized for local deployment to ensure data privacy and cost-effectiveness.
+
+\textbf{Out of Scope:} Large-scale telephony integrations, regulatory certifications, multilingual expansion beyond minimal English fallback, payment processing, and commercial deployment without institutional approval.
+
+\section{Iteration 2 Objectives}
+
+As per the project proposal, Iteration 2 (Nov--Dec) was designed to accomplish:
+
+\begin{enumerate}
+    \item \textbf{LLM/Policy Integration}: Integrate a locally-hosted or API-based Large Language Model for generating contextually appropriate Urdu responses
+    \item \textbf{Prompt Scaffolding}: Design system prompts that enforce the real estate agent persona and maintain conversation context
+    \item \textbf{Basic Dialogue Flows}: Implement intent classification and state tracking for lead qualification
+    \item \textbf{RAG Pipeline}: Create a vector store indexing property listings for semantic retrieval
+    \item \textbf{Property Dataset Indexing}: Ingest and normalize real estate datasets from Kaggle and other sources
+    \item \textbf{Price Predictor Prototype}: Develop a baseline price estimation model using property features
+\end{enumerate}
+
+\section{Work Completed Summary}
+
+Iteration 2 successfully delivered the following key components:
+
+\textbf{LLM/Policy Module:} Implemented dual-backend LLM integration supporting both Google Gemini Flash API for cloud inference and HuggingFace/llama.cpp for local deployment. The system includes streaming response generation and domain-specific prompt scaffolding for the real estate agent persona.
+
+\textbf{RAG Pipeline:} Developed a complete Retrieval-Augmented Generation pipeline with ChromaDB vector store, multilingual embedding support using paraphrase-multilingual-MiniLM, and a data ingestion system that normalizes property listings from multiple sources.
+
+\textbf{Price Prediction:} Created a valuation API endpoint with location-aware area unit normalization (handling Marla variations across Pakistani housing societies) and placeholder ML pipeline for future model integration.
+
+\textbf{Frontend Console:} Built a Next.js console interface with real-time PCM audio streaming via Web Audio API, dynamic widget rendering for price estimates and property listings, and waveform visualization.
+
+Building upon the ASR foundation from Iteration 1 (streaming Whisper transcriber, ONNX VAD, WebSocket endpoint), the system now provides an end-to-end voice AI pipeline from audio input through intelligent response generation.
+
+\section{User Classes}
+
+Table~\ref{tab:user-classes} describes the primary user classes for the system.
+
+\begin{table}[!htbp]
+\centering
+\caption{User Classes and Characteristics}
+\label{tab:user-classes}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{User Class} & \textbf{Description} \\ \hline
+Real Estate Agent & Uses the system to automate lead qualification and client outreach. Works for real estate agencies and handles multiple properties. Uses the web dashboard for campaign management. \\ \hline
+Property Customer & Interacts with the AI agent to inquire about properties, prices, and scheduling viewings. Uses the telephony channel exclusively. May use both Urdu and Roman Urdu in conversations. \\ \hline
+System Supervisor & Monitors system performance, ensures compliance, and manages escalations. Uses the admin dashboard for real-time monitoring and analytics review. \\ \hline
+Platform Administrator & Manages deployment, data, and model updates. Responsible for system maintenance and technical operations. Uses both admin panel and command-line interfaces. \\ \hline
+\end{tabular}
+\end{table}

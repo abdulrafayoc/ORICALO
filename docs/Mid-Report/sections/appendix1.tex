@@ -1,0 +1,85 @@
+\appendix
+\chapter{API Reference}
+\label{app:api}
+
+This appendix provides the API reference for the main backend endpoints.
+
+\section{Dialogue Step Endpoint}
+
+\textbf{POST} \texttt{/dialogue/step}
+
+Processes a dialogue turn with LLM and RAG integration, returning a streaming response.
+
+\textbf{Request Body:}
+\begin{itemize}
+    \item \texttt{history}: Array of previous conversation turns with role and text
+    \item \texttt{latest\_transcript}: The current user utterance
+    \item \texttt{metadata}: Optional metadata including latency measurements
+\end{itemize}
+
+\textbf{Response (Streaming NDJSON):}
+\begin{itemize}
+    \item Token messages: \texttt{\{"type": "token", "content": "..."\}}
+    \item Action messages: \texttt{\{"type": "action", "data": \{...\}\}}
+\end{itemize}
+
+\section{RAG Query Endpoint}
+
+\textbf{POST} \texttt{/rag/query}
+
+Performs semantic search over the property vector store.
+
+\textbf{Request Body:}
+\begin{itemize}
+    \item \texttt{query}: Natural language search query
+    \item \texttt{top\_k}: Number of results to return (default: 5)
+    \item \texttt{filters}: Optional metadata filters (city, min\_price, property\_type)
+\end{itemize}
+
+\textbf{Response:}
+\begin{itemize}
+    \item \texttt{query}: Echo of the input query
+    \item \texttt{results}: Array of matching properties with id, score, text, and metadata
+\end{itemize}
+
+\section{Valuation Endpoint}
+
+\textbf{POST} \texttt{/valuation/predict}
+
+Provides price range estimation for a property based on features.
+
+\textbf{Request Body:}
+\begin{itemize}
+    \item \texttt{city}: City name (required)
+    \item \texttt{property\_type}: Type of property (required)
+    \item \texttt{bedrooms}: Number of bedrooms (required)
+    \item \texttt{baths}: Number of bathrooms (required)
+    \item \texttt{area\_marla} or \texttt{area\_sqft}: Property area (one required)
+    \item \texttt{location}: Specific locality for area unit detection (optional)
+\end{itemize}
+
+\textbf{Response:}
+\begin{itemize}
+    \item \texttt{predicted\_price\_pkr}: Point estimate in PKR
+    \item \texttt{min\_price\_lakh}: Lower bound of range in Lakh
+    \item \texttt{max\_price\_lakh}: Upper bound of range in Lakh
+    \item \texttt{currency}: Always ``PKR''
+    \item \texttt{confidence}: Model confidence score (0.0 - 1.0)
+\end{itemize}
+
+\section{WebSocket: Transcription}
+
+\textbf{WebSocket} \texttt{/ws/transcribe}
+
+Real-time audio streaming for ASR transcription.
+
+\textbf{Client Messages:}
+\begin{itemize}
+    \item Audio frame: \texttt{\{"type": "audio", "data": "<base64>", "format": "pcm\_s16le", "sampleRate": 16000\}}
+\end{itemize}
+
+\textbf{Server Messages:}
+\begin{itemize}
+    \item Status: \texttt{\{"type": "status", "status": "ready|loading", "message": "..."\}}
+    \item Transcript: \texttt{\{"type": "transcript", "text": "...", "is\_final": true|false\}}
+\end{itemize}

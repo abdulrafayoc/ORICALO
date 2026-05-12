@@ -1,0 +1,127 @@
+\chapter{Data Design}
+\label{ch:data-design}
+
+\section{RAG Corpus Schema}
+
+The processed property corpus uses a unified JSONL format optimized for semantic retrieval. Table~\ref{tab:corpus-schema} shows the complete schema.
+
+\begin{table}[!htbp]
+\centering
+\caption{RAG Corpus Schema}
+\label{tab:corpus-schema}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \hline
+\texttt{Property\_Id} & string & Unique identifier \\ \hline
+\texttt{City} & string & City name (Lahore, Islamabad, Karachi) \\ \hline
+\texttt{Location} & string & Locality/sector name \\ \hline
+\texttt{Long Location} & string & Full address \\ \hline
+\texttt{Property Type} & string & House, Plot, Flat, Commercial \\ \hline
+\texttt{Price} & float & Listed price in PKR \\ \hline
+\texttt{Price in words} & string & Localized price (``3 Crore 50 Lakh'') \\ \hline
+\texttt{Bedrooms} & int & Number of bedrooms \\ \hline
+\texttt{Baths} & int & Number of bathrooms \\ \hline
+\texttt{Area (Marla)} & float & Area in Marla units \\ \hline
+\texttt{Short Desc} & string & Title/headline \\ \hline
+\texttt{Long Desc} & string & Full description (for embeddings) \\ \hline
+\texttt{Link} & string & Source URL \\ \hline
+\end{tabular}
+\end{table}
+
+\section{ChromaDB Collection Structure}
+
+The ChromaDB collection is configured as follows:
+
+\begin{lstlisting}[language=Python, caption={ChromaDB Collection Configuration}, label=lst:chroma-config]
+# Collection configuration
+collection = client.get_or_create_collection(
+    name="properties",
+    embedding_function=SentenceTransformerEmbeddingFunction(
+        model_name="paraphrase-multilingual-MiniLM-L12-v2"
+    ),
+    metadata={"hnsw:space": "cosine"}
+)
+
+# Document structure
+{
+    "id": "prop_12345",
+    "document": "Brand new 5 bed house in DHA Phase 5...",
+    "metadata": {
+        "city": "Lahore",
+        "location": "DHA Phase 5",
+        "property_type": "House",
+        "bedrooms": 5,
+        "baths": 6,
+        "price": 35000000,
+        "link": "https://..."
+    }
+}
+\end{lstlisting}
+
+\section{Embedding Model Specifications}
+
+Table~\ref{tab:embedding-specs} presents the embedding model specifications.
+
+\begin{table}[!htbp]
+\centering
+\caption{Embedding Model Specifications}
+\label{tab:embedding-specs}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Property} & \textbf{Value} \\ \hline
+Model & \texttt{paraphrase-multilingual-MiniLM-L12-v2} \\ \hline
+Dimensions & 384 \\ \hline
+Languages & 50+ including Urdu, English, Hindi \\ \hline
+Max Sequence & 128 tokens \\ \hline
+Architecture & Transformer (DistilBERT-based) \\ \hline
+License & Apache 2.0 \\ \hline
+\end{tabular}
+\end{table}
+
+\textbf{Selection Rationale:} This model provides excellent multilingual support crucial for handling the Urdu-English code-switching common in Pakistani real estate descriptions.
+
+\section{Data Pipeline Flow}
+
+The data pipeline processes information from multiple sources:
+
+\textbf{Data Sources:}
+\begin{itemize}
+    \item Kaggle: Pakistan Property Landscape
+    \item Kaggle: Lahore House Listings 2025
+    \item OpenDataBay: Urban Real Estate
+\end{itemize}
+
+\textbf{Processing Pipeline:}
+\begin{enumerate}
+    \item \textbf{Load CSVs}: Import raw data from sources
+    \item \textbf{Schema Unification}: Map diverse column names to unified schema
+    \item \textbf{Data Cleaning}: Handle missing values, normalize formats
+    \item \textbf{JSONL Export}: Output to \texttt{rag\_corpus.jsonl}
+\end{enumerate}
+
+\textbf{Indexing Pipeline:}
+\begin{enumerate}
+    \item \textbf{Parse JSONL}: Read processed corpus
+    \item \textbf{Generate Embeddings}: Use SentenceTransformer model
+    \item \textbf{ChromaDB Insert}: Store documents with metadata
+\end{enumerate}
+
+\section{Sample JSONL Record}
+
+\begin{lstlisting}[caption={Sample Property Record in JSONL Format}, label=lst:sample-jsonl]
+{
+    "Property_Id": "12345",
+    "City": "Lahore",
+    "Location": "DHA Phase 5",
+    "Property Type": "House",
+    "Price": 35000000,
+    "Price in words": "3 Crore 50 Lakh",
+    "Bedrooms": 5,
+    "Baths": 6,
+    "Area (Marla)": 10,
+    "Short Desc": "Brand new 5 bed house in DHA Phase 5",
+    "Long Desc": "Beautiful corner plot house with modern architecture...",
+    "Link": "https://www.zameen.com/Property/..."
+}
+\end{lstlisting}

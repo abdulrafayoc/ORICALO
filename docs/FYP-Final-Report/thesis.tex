@@ -1,0 +1,86 @@
+\documentclass{fast-nuces-bs}
+
+\usepackage{blindtext}
+\usepackage{mathptmx}% Times Roman font
+\usepackage[T1]{fontenc}
+\usepackage{lipsum}
+\usepackage{sectsty}
+% \usepackage{tikz-uml} % Commented out to speed up compilation
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+% Code listing style
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+}
+
+\lstset{style=mystyle}
+
+% Information about the Thesis
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\department{Department of Software Engineering}
+\faculty{Software Engineering}
+\degreeyear{2026}
+\degreemonth{May}
+\degreename{Software Engineering}
+\campuscity{Islamabad}
+\authorone{Abdul Rafay}{22I-8762}
+\authortwo{Sumeed Jawad Kanwar}{22I-2651}
+\authorthree{Huzaifa Mahmood}{22I-2669}
+\supervisor{Mr. Ahmed Raza Shahid}
+\sessionduration{2022-2026}
+\deanname{Dr. Dean Computing}
+\directorname{Dr. Director of the Campus}
+\hodname{Dr. Head of Software Engineering Department}
+\title{Urdu-Native Voice Agent for Real Estate Marketing in Pakistan}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Pakistan's real estate sector relies heavily on voice-based communication conducted primarily in Urdu and Roman Urdu. Current AI voice solutions are predominantly optimised for English, resulting in poor transcription accuracy, unnatural speech synthesis, and inadequate handling of local real estate vocabulary. This project addresses the critical gap by developing ORICALO, an open-source, locally-deployable Urdu-Native Voice Agent that automates real estate lead generation and customer inquiry handling.
+
+The system integrates six core modules: a streaming Automatic Speech Recognition (ASR) engine supporting Urdu and Roman Urdu via Whisper, Deepgram, and Groq backends; an LLM-based Dialogue Manager using Gemini, Groq, and local HuggingFace models; a Retrieval-Augmented Generation (RAG) pipeline grounding responses in actual property listings; an ML-based Property Valuation engine trained on Pakistani real estate data; a Urdu Text-to-Speech module powered by Uplift AI with barge-in-capable streaming; and a CRM with full lead management, automated post-call analytics, and Twilio outbound calling.
+
+The complete system is containerised with Docker, backed by a PostgreSQL database, and validated through 245 automated tests spanning unit and integration levels. ORICALO successfully demonstrates an end-to-end voice AI pipeline that can conduct natural real estate conversations in Urdu, qualify leads automatically, and provide accurate property valuations --- all on locally-deployable, cost-effective open-source infrastructure.
+
+\include{sections/chapter1}
+\include{sections/chapter2}
+\include{sections/chapter3}
+\include{sections/chapter4}
+\include{sections/conclusions}
+
+\bibliographystyle{plain}
+\bibliography{bib}
+\addcontentsline{toc}{chapter}{References}
+% \input{appendix}  % Commented out to save memory on Overleaf free tier
+
+\end{document}

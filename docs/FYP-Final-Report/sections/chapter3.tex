@@ -1,0 +1,45 @@
+\chapter{System Overview}
+\label{ch:system-overview}
+
+This chapter presents the overall system design of ORICALO, including its architectural decomposition and data models.
+
+\section{Architectural Design}
+
+ORICALO follows a layered, service-oriented architecture with a clear separation between the real-time voice pipeline, the application API layer, and the data layer:
+
+\begin{itemize}
+    \item \textbf{Presentation Layer}: Next.js frontend providing the browser-based console, CRM dashboard, and Analytics.
+    \item \textbf{Application Layer}: FastAPI backend offering modular services for STT, Dialogue, Valuation, Voice Orchestration, CRM, and Analytics.
+    \item \textbf{Data Layer}: PostgreSQL for structured CRM data, and ChromaDB for property vector embeddings.
+\end{itemize}
+
+Communication occurs via full-duplex WebSockets for real-time audio and REST APIs for standard data retrieval. 
+
+\section{Data Flow and Orchestration}
+
+The system processes real-time interactions through six primary components:
+\begin{enumerate}
+    \item \textbf{Audio Capture}: Streams PCM audio from the browser.
+    \item \textbf{Speech Recognition (STT)}: Converts audio to Urdu text using Whisper/Deepgram.
+    \item \textbf{Dialogue \& RAG}: Classifies intent, searches ChromaDB for properties, and generates prompts.
+    \item \textbf{LLM Engine}: Streams contextual Urdu responses token-by-token.
+    \item \textbf{Speech Synthesis (TTS)}: Converts LLM text back to Urdu audio via Uplift AI.
+    \item \textbf{CRM Analytics}: Post-call processing for lead scoring and data persistence.
+\end{enumerate}
+
+The \textbf{Voice Orchestrator} governs this flow using a strict LISTENING $\rightarrow$ PROCESSING $\rightarrow$ SPEAKING state machine. If the user speaks during the SPEAKING state, a barge-in event is triggered, instantly cancelling active LLM and TTS tasks and resetting to LISTENING.
+
+\section{Data Design}
+
+The system utilizes two distinct database technologies:
+
+\subsection{PostgreSQL Relational Schema}
+Implemented with asynchronous SQLAlchemy, the CRM relies on three primary tables:
+\begin{itemize}
+    \item \textbf{Leads}: Stores customer info, intent, budget, timeline, and an LLM-generated score (0--100).
+    \item \textbf{CallSessions}: Stores PII-redacted transcripts and summaries linked to leads.
+    \item \textbf{ActionItems}: Stores actionable follow-up tasks flagged for human agents.
+\end{itemize}
+
+\subsection{ChromaDB Vector Store}
+Property listings are unified from Kaggle datasets and indexed in ChromaDB using the \texttt{paraphrase-multilingual-MiniLM-L12-v2} embedding model. This allows the system to conduct highly accurate cross-lingual semantic searches (Urdu voice to English data) based on location, price, and property type.

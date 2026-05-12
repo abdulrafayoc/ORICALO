@@ -1,0 +1,130 @@
+\chapter{Work Summary \& Conclusions}
+\label{ch:conclusions}
+
+\section{Work Division by Team Member}
+
+\subsection{Iteration 1}
+
+Table~\ref{tab:work-iter1} shows the work division for Iteration 1.
+
+\begin{table}[!htbp]
+\centering
+\caption{Iteration 1 Work Division}
+\label{tab:work-iter1}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Team Member} & \textbf{Responsibilities} \\ \hline
+Abdul Rafay & ASR baseline evaluation, requirements gathering, synthetic dialog generation \\ \hline
+Sumeed Jawad & LLM groundwork, WebSocket streaming, frontend console \\ \hline
+Huzaifa Mahmood & Lexicon list, dataset planning, ethics documentation \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{Iteration 2}
+
+Table~\ref{tab:work-iter2} shows the work division for Iteration 2.
+
+\begin{table}[!htbp]
+\centering
+\caption{Iteration 2 Work Division}
+\label{tab:work-iter2}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|p{10cm}|}
+\hline
+\textbf{Team Member} & \textbf{Responsibilities} \\ \hline
+Abdul Rafay & RAG pipeline, dialogue flow, price-predictor prototype \\ \hline
+Sumeed Jawad & LLM/policy integration, prompt scaffolding, Integration assistance  \\ \hline
+Huzaifa Mahmood & streaming API, ASR optimization, dataset ingestion \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Challenges Encountered}
+
+Table~\ref{tab:challenges} summarizes the key challenges and their solutions.
+
+\begin{table}[!htbp]
+\centering
+\caption{Challenges and Solutions}
+\label{tab:challenges}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{5cm}|p{8cm}|} 
+\hline
+\textbf{Challenge} & \textbf{Solution} \\ \hline
+LLM Response Latency & Implemented token streaming to display partial responses, reducing perceived wait time significantly \\ \hline
+Multilingual Embedding Quality & Selected paraphrase-multilingual-MiniLM model after benchmarking multiple options for Urdu-English retrieval \\ \hline
+Real-time Audio Synchronization & Designed chunked audio pipeline with proper buffering to handle network jitter \\ \hline
+Property Data Inconsistency & Built robust schema unification layer to normalize data from heterogeneous sources \\ \hline
+Model Memory Constraints & Implemented 4-bit quantization for local LLM inference to fit within available GPU memory \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Iteration 3 Preview}
+
+As per the project timeline (Feb--Mar), the next iteration will focus on:
+
+\begin{enumerate}
+    \item \textbf{TTS Integration}: Urdu speech synthesis with prosody control
+    \item \textbf{Turn-taking Logic}: Proper conversation flow management
+    \item \textbf{Diarization}: Speaker identification for multi-party calls
+    \item \textbf{End-to-End Demo}: Full voice agent demo in sandbox environment
+    \item \textbf{Internal Role-play Runs}: Testing with team members
+\end{enumerate}
+
+\section{Repository Structure}
+
+The project repository is organized as follows:
+
+\begin{verbatim}
+ORICALO/
++-- backend/
+|   +-- app/api/endpoints/    # FastAPI routes
+|   |   +-- dialogue.py       # LLM + RAG dialogue endpoint
+|   |   +-- stt.py            # WebSocket ASR endpoint
+|   |   +-- valuation.py      # Price prediction endpoint
+|   +-- llm/                  # LLM backends
+|   |   +-- llm_gemini.py     # Gemini Flash
+|   |   +-- llm_hf.py         # HuggingFace / llama.cpp
+|   +-- rag/                  # RAG pipeline
+|   |   +-- ingestion.py      # Dataset processing
+|   |   +-- vector_store.py   # ChromaDB interface
+|   +-- stt/                  # Speech-to-Text
+|   |   +-- stt_hf.py         # Streaming Whisper
+|   |   +-- vad.py            # Voice Activity Detection
+|   |   +-- utils.py          # Audio utilities
+|   +-- evaluation/           # Evaluation scripts
+|       +-- baseline_evaluation.py
+|       +-- telephony_simulator.py
++-- frontend/
+|   +-- app/console/          # Console page
+|   +-- components/           # UI widgets
++-- training/
+|   +-- asr/                  # Whisper fine-tuning
+|       +-- train.py
+|       +-- generate_dataset_deepgram.py
++-- data/
+|   +-- rag/                  # Source datasets
+|   +-- processed/            # Normalized data
+|   +-- vector/               # ChromaDB persist
++-- docs/                     # Documentation
+|   +-- ARCHITECTURE.md
+|   +-- data_analysis_report.md
++-- deliverables/             # Reports
+\end{verbatim}
+
+\section{Conclusions}
+
+This Iteration 2 report has presented the complete implementation of the LLM-based dialogue management, RAG pipeline for property data grounding, and price prediction agent. Building upon the ASR foundation from Iteration 1, the system now provides an end-to-end voice AI pipeline from audio input through intelligent response generation.
+
+Key accomplishments include:
+\begin{itemize}
+    \item Dual LLM backend supporting both Gemini API and local HuggingFace/llama.cpp inference
+    \item Robust RAG pipeline with ChromaDB vector store and multilingual embeddings
+    \item Price prediction API with Marla-to-sqft normalization for Pakistani real estate
+    \item Intent-driven dialogue manager with action dispatch for interactive UI widgets
+    \item Modern Next.js frontend with real-time PCM streaming and dynamic widget rendering
+\end{itemize}
+
+The project is on track to deliver a complete Urdu-native voice agent for real estate marketing, with Iteration 3 focusing on TTS integration and end-to-end demonstration.
+
+<Prompt>

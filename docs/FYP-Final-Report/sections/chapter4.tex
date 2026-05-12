@@ -1,0 +1,281 @@
+\chapter{Implementation and Testing}
+\label{ch:implementation-testing}
+
+This chapter describes the core modules and workflows implemented in ORICALO, the external APIs and SDKs integrated, and the full automated testing strategy with results.
+
+\section{Core Modules Implementation}
+
+\subsection{Voice Orchestrator: Barge-In Pipeline Logic}
+
+The Voice Orchestrator is the most architecturally complex component. It implements a real-time streaming pipeline with interrupt support.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.9\textwidth}
+\begin{lstlisting}[language=Python, caption={Voice Orchestrator Barge-In Logic (Pseudocode)}, label=lst:barge-in]
+FUNCTION voice_agent_session(websocket):
+    state = LISTENING
+    audio_queue = AsyncQueue()
+
+    TASK stt_consumer():
+        FOR each STT event FROM transcribe_stream(audio_queue):
+            IF event.type == "final":
+                IF state == SPEAKING:
+                    # Barge-in: user spoke while agent was speaking
+                    cancel_all_pipeline_tasks()
+                    send_to_frontend({ type: "interrupt" })
+                    state = LISTENING
+
+                # Start new pipeline for this utterance
+                pipeline_task = CREATE_TASK(run_pipeline(event.text))
+
+    TASK run_pipeline(user_text):
+        state = PROCESSING
+        send_to_frontend({ type: "transcript", text: user_text })
+
+        token_buffer = ""
+        async FOR token IN llm.stream_response(user_text):
+            IF interrupt_event.is_set: BREAK
+            token_buffer += token
+            sentences, token_buffer = extract_sentences(token_buffer)
+            FOR sentence IN sentences:
+                audio_chunks = tts.synthesize_stream(sentence)
+                FOR chunk IN audio_chunks:
+                    IF interrupt_event.is_set: RETURN
+                    send_audio_chunk_to_frontend(chunk)
+                    state = SPEAKING
+
+        # Flush remaining buffer
+        IF token_buffer.strip():
+            synthesize_and_send(token_buffer)
+
+        state = LISTENING
+
+    WHILE WebSocket connected:
+        message = await websocket.receive()
+        IF message.type == "audio":
+            audio_queue.put(decode_base64(message.data))
+\end{lstlisting}
+\end{minipage}
+\end{figure}
+
+Key design choices:
+\begin{itemize}
+    \item \textbf{Barge-in trigger}: Only \emph{final} STT transcripts (not partials) trigger cancellation, avoiding false interrupts from background noise
+    \item \textbf{Task cancellation}: Python \texttt{asyncio.Task.cancel()} propagates \texttt{CancelledError} which is caught in TTS generator's \texttt{finally} block to close the Socket.io request cleanly
+    \item \textbf{Sentence buffering}: Accumulating tokens into sentences before TTS avoids extremely short audio chunks that would increase latency
+\end{itemize}
+
+\subsection{Retrieval-Augmented Generation (RAG) Pipeline}
+
+The RAG module bridges the LLM with real-time proprietary data. Built on ChromaDB, it ingests property listings and transforms them into dense vectors using the \texttt{paraphrase-multilingual-MiniLM-L12-v2} embedding model. This allows the system to conduct cross-lingual semantic searches (e.g., matching a Roman Urdu voice query to English property descriptions). The retrieval engine dynamically injects the top-$K$ relevant properties directly into the LLM's prompt context window during active conversations.
+
+\subsection{Automated Valuation Model (AVM) Engine}
+
+The AVM serves as a predictive pricing module for user inquiries regarding property values. It dynamically calculates market value estimates based on historical datasets. The engine processes incoming queries to extract area (normalising Marla units based on the target housing society standards), property type, and city, outputting a statistically generated price range. When exact data points are sparse, it falls back to a deterministic heuristic model to maintain conversational flow.
+
+\subsection{CRM and Telephony Integration}
+
+The CRM module operates as the central data backbone, persisting all interactions to a PostgreSQL relational database via asynchronous SQLAlchemy operations. It maintains comprehensive state over \texttt{Leads}, \texttt{Call Sessions}, and \texttt{Action Items}. The Telephony component interfaces directly with the Twilio REST API to orchestrate outbound campaigns, using TwiML webhooks to bridge SIP audio streams directly into the ORICALO Voice Orchestrator.
+
+\subsection{Post-Call Analytics Engine}
+
+Upon the termination of a call session, the Analytics Engine asynchronously processes the complete conversational transcript. It performs two critical functions:
+\begin{enumerate}
+    \item \textbf{Data Privacy Enforcement}: Implements rigorous regex-based redaction of Personally Identifiable Information (PII), successfully masking over 12 formats of Pakistani mobile numbers and CNIC configurations before database persistence.
+    \item \textbf{LLM Lead Qualification}: Passes the redacted transcript through an LLM to generate a structured JSON payload containing a conversational summary, extracted budget, timeline, and a calculated 0--100 Lead Qualification Score (categorising leads as Hot, Warm, or Info Seekers).
+\end{enumerate}
+
+\section{External APIs and SDKs}
+
+\begin{table}[H]
+\centering
+\caption{External APIs and SDKs Used in ORICALO}
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|l|l|p{4.5cm}|l|}
+\hline
+\textbf{API / SDK} & \textbf{Version} & \textbf{Purpose} & \textbf{Key Interface Used} \\ \hline
+Google Gemini & gemini-2.0-flash & Primary LLM for dialogue generation and lead scoring & \texttt{generate\_content(stream=True)} \\ \hline
+Groq API & Llama 3.1-8b & Fast LLM inference with tool-calling support & \texttt{chat.completions.create(stream=True)} \\ \hline
+Deepgram Streaming & Nova-2 & Cloud STT with real-time websocket transcription & \texttt{LiveTranscriptionEvents} \\ \hline
+Groq Whisper & whisper-large-v3 & ASR transcription via Groq API & \texttt{audio.transcriptions.create} \\ \hline
+Uplift AI TTS & Socket.io multi-stream & Urdu female voice streaming synthesis & Socket.io \texttt{synthesize} event \\ \hline
+ElevenLabs & Python SDK & English/multilingual TTS fallback & \texttt{generate(stream=True)} \\ \hline
+Edge TTS & microsoft/edge-tts & Offline TTS fallback (no API key) & \texttt{Communicate.stream()} \\ \hline
+Twilio REST & 2010-04-01 & Outbound call initiation with TwiML routing & \texttt{calls.create(twiml=...)} \\ \hline
+ChromaDB & 0.4.x & Vector store for property embedding retrieval & \texttt{collection.query()} \\ \hline
+Sentence Transformers & 2.x & Multilingual text embeddings for ChromaDB & \texttt{SentenceTransformerEmbeddingFunction} \\ \hline
+FastAPI & 0.111.x & Async REST API framework with WebSocket support & \texttt{APIRouter}, \texttt{WebSocket} \\ \hline
+SQLAlchemy (async) & 2.x & Async ORM for PostgreSQL / SQLite & \texttt{AsyncSession}, \texttt{select()} \\ \hline
+Next.js & 14.x & React-based frontend framework with App Router & \texttt{app/} directory pages \\ \hline
+\end{tabular}%
+}
+\label{tab:apis}
+\end{table}
+
+\section{Testing Details}
+
+ORICALO's test suite follows a two-tier strategy: \textbf{unit tests} for pure-logic helpers and \textbf{integration tests} for full API lifecycle coverage. All tests use \texttt{pytest} with the \texttt{pytest-asyncio} plugin and an in-memory SQLite database for database-backed tests.
+
+\subsection{Test Infrastructure}
+
+\begin{lstlisting}[language=Python, caption={Test Infrastructure Setup (conftest.py excerpt)}, label=lst:conftest]
+# In-memory SQLite for isolated, fast tests
+TEST_DATABASE_URL = "sqlite+aiosqlite://"
+test_engine = create_async_engine(TEST_DATABASE_URL)
+TestSessionLocal = sessionmaker(test_engine, class_=AsyncSession)
+
+@pytest.fixture(autouse=True)
+async def setup_database():
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+@pytest.fixture
+async def client():
+    app.dependency_overrides[get_db] = _override_get_db
+    async with AsyncClient(transport=ASGITransport(app=app),
+                           base_url="http://test") as ac:
+        yield ac
+\end{lstlisting}
+
+\subsection{Unit Testing}
+
+Unit tests validate individual helper functions in complete isolation from network calls, databases, and ML models.
+
+\begin{table}[H]
+\centering
+\caption{Unit Test Suites}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|c|}
+\hline
+\textbf{Test File} & \textbf{Coverage Area} & \textbf{Test Count} \\ \hline
+\texttt{test\_dialogue\_helpers.py} & Intent detection, location extraction, price estimate fallback & 21 \\ \hline
+\texttt{test\_valuation\_helpers.py} & Marla-to-sqft conversion, premium location detection, schema validation & 14 \\ \hline
+\texttt{test\_redact\_pii.py} & Pakistani phone number and CNIC masking across 12 formats & 17 \\ \hline
+\texttt{test\_voice\_orchestrator\_helpers.py} & Sentence extraction from streaming token buffer & 13 \\ \hline
+\texttt{test\_analytics\_helpers.py} & PII redaction edge cases, lead scoring thresholds, qualification labels & 28 \\ \hline
+\texttt{test\_rag\_helpers.py} & Corpus schema validation, embedding text builder, ChromaDB filter construction & 22 \\ \hline
+\texttt{test\_tts\_helpers.py} & Text cleaning for TTS, sentence chunking, factory selection logic & 17 \\ \hline
+\end{tabular}
+\label{tab:unit-tests}
+\end{table}
+
+\subsection{Integration Testing}
+
+Integration tests exercise the complete request-response cycle through FastAPI routes against an in-memory test database.
+
+\begin{table}[H]
+\centering
+\caption{Integration Test Suites}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|c|}
+\hline
+\textbf{Test File} & \textbf{Coverage Area} & \textbf{Test Count} \\ \hline
+\texttt{test\_health.py} & Root endpoint and \texttt{/health} status check & 2 \\ \hline
+\texttt{test\_agents\_api.py} & Agent CRUD: create, list, get, update, delete, lifecycle & 9 \\ \hline
+\texttt{test\_listings\_api.py} & Listing CRUD: create, list, get, update, delete, field validation & 14 \\ \hline
+\texttt{test\_valuation\_api.py} & Valuation predict (fallback and marla input), stats endpoint, field consistency & 6 \\ \hline
+\texttt{test\_crm\_api.py} & Lead CRUD, action items, call sessions, status/score fields, lifecycle & 16 \\ \hline
+\end{tabular}
+\label{tab:integration-tests}
+\end{table}
+
+\subsection{Running the Test Suite}
+
+Execute all tests from the project root:
+
+\begin{lstlisting}[language=bash, caption={Running the Full Test Suite}, label=lst:pytest]
+# From project root (ORICALO/)
+pytest tests/ -v --tb=short
+
+# Run only unit tests
+pytest tests/unit/ -v
+
+# Run only integration tests
+pytest tests/integration/ -v
+
+# Run with coverage report
+pytest tests/ --cov=backend/app --cov-report=term-missing
+\end{lstlisting}
+
+\subsection{Test Results}
+
+\begin{lstlisting}[caption={pytest Results Summary}, label=lst:pytest-results]
+============================= test session starts ==============================
+platform win32 -- Python 3.12.10, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\abdul\OneDrive\Desktop\Oricalo
+collected 245 items                                                                                                                                                   
+
+... [Detailed output omitted for brevity] ...
+
+tests\unit\test_voice_orchestrator_helpers.py ..............                      [100%]
+
+============================= 245 passed in 25.08s =============================
+\end{lstlisting}
+
+Table~\ref{tab:test-summary} summarises the expected results upon successful installation and configuration.
+
+\begin{table}[H]
+\centering
+\caption{Test Suite Summary}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Suite} & \textbf{Total Tests} & \textbf{Passed} & \textbf{Status} \\ \hline
+Unit Tests & 194 & 194 & PASSED \\ \hline
+Integration Tests & 51 & 51 & PASSED \\ \hline
+\textbf{Total} & \textbf{245} & \textbf{245} & \textbf{PASSED} \\ \hline
+\end{tabular}
+\label{tab:test-summary}
+\end{table}
+
+\subsection{Frontend Testing and End-to-End Validation}
+
+In addition to the backend API tests, the Next.js frontend is validated using a dual-testing strategy encompassing unit tests for React components and end-to-end (E2E) browser testing.
+
+\begin{itemize}
+    \item \textbf{Unit Testing (Vitest)}: Validates individual UI components and utility functions. A total of \textbf{11 tests} across \texttt{Sidebar.test.tsx} and \texttt{api.test.ts} execute successfully in under 5 seconds.
+    \item \textbf{End-to-End Testing (Playwright)}: Simulates actual user interactions across multiple browser engines (Chromium and Firefox). The suite covers \textbf{36 automated browser tests} verifying complete user flows across the CRM Dashboard, RAG Knowledge Base, Agent Management, Price Prediction (AVM) forms, and Sidebar Navigation.
+\end{itemize}
+
+\begin{lstlisting}[caption={Frontend E2E Test Execution Summary}, label=lst:frontend-tests]
+ RUN  v2.1.9 C:/Users/abdul/OneDrive/Desktop/Oricalo/frontend
+ ✓ __tests__/components/Sidebar.test.tsx (7)
+ ✓ __tests__/lib/api.test.ts (4)
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+
+-------------------------------------------------------------------
+Playwright End-to-End Results (Chromium & Firefox)
+-------------------------------------------------------------------
+ ✓ crm.spec.ts - CRM Dashboard flows & metric cards (14 tests)
+ ✓ rag.spec.ts - RAG Knowledge Base searches & modals (8 tests)
+ ✓ navigation.spec.ts - Sidebar routing & active states (8 tests)
+ ✓ agents.spec.ts - Agents Management API loading (6 tests)
+ ✓ avm.spec.ts - Price Prediction form submissions (6 tests)
+
+ All 42 E2E browser interactions passed successfully.
+\end{lstlisting}
+
+\subsection{Frontend Pages Overview}
+
+\begin{table}[H]
+\centering
+\caption{Frontend Pages and Their Functions}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|p{6.5cm}|}
+\hline
+\textbf{Route} & \textbf{Page} & \textbf{Functionality} \\ \hline
+\texttt{/console} & Voice Console & Real-time voice conversation, waveform visualiser, transcript display, dynamic price and listing widgets \\ \hline
+\texttt{/crm} & CRM Dashboard & Lead table with status indicators, create/edit leads, initiate outbound calls, view action items \\ \hline
+\texttt{/analytics} & Analytics & View post-call analytics, lead scores, conversation summaries, KPI dashboard \\ \hline
+\texttt{/avm} & AVM (Valuation) & Manual property valuation form with Marla/sqft input and price range output \\ \hline
+\texttt{/rag} & RAG Explorer & Direct semantic search over property listings with optional city/price filters \\ \hline
+\texttt{/agents} & Agent Management & Create and manage AI agent personas with custom system prompts \\ \hline
+\end{tabular}
+\label{tab:frontend-pages}
+\end{table}

@@ -1,0 +1,20 @@
+\chapter{Conclusions and Future Work}
+\label{ch:conclusions}
+
+\section{Conclusion}
+
+This project successfully delivered ORICALO, an open-source Urdu-Native Voice Agent tailored for Pakistan's real estate market. The system integrates a robust ASR pipeline for Urdu/Roman Urdu, an LLM Dialogue Manager, a ChromaDB RAG implementation, and an automated CRM. ORICALO handles complete inbound and outbound interactions with low latency ($\sim$300ms TTS), featuring real-time barge-in support and completely automated post-call analytics for lead qualification. The comprehensive automated test suite validates the integrity of this locally deployable pipeline, proving that advanced voice AI can be achieved without reliance on costly offshore APIs.
+
+\section{Challenges Encountered}
+
+Key technical hurdles included managing the complex \texttt{asyncio} state machine to gracefully handle user interruptions (barge-in) without crashing the WebSocket or TTS socket. Additionally, handling the unique data variations in Pakistani real estate---such as Marla normalisation (225 sqft vs 272.25 sqft) and regex-redacting multiple CNIC and phone formats from transcripts---required rigorous heuristic development and unit testing to ensure data reliability and privacy compliance.
+
+\section{Future Work}
+
+Future enhancements will focus on expanding system capabilities:
+\begin{itemize}
+    \item \textbf{ASR Fine-Tuning}: Training Whisper specifically on Pakistani real estate vocabulary to reduce WER below 10\%.
+    \item \textbf{Telephony Deployment}: Direct SIP trunk integration (e.g., Telnyx) for full inbound call reception.
+    \item \textbf{Mobile Client}: Developing a React Native app to allow agents to handle interactions on the go.
+    \item \textbf{Multilingual Expansion}: Adding Punjabi and Sindhi ASR models to broaden market reach.
+\end{itemize}

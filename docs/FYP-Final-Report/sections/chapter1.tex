@@ -1,0 +1,47 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Background and Problem Statement}
+
+Pakistan's real estate sector is primarily driven by voice-based communication in Urdu and Roman Urdu. Commercial AI voice systems (e.g., ElevenLabs, Vapi) are predominantly English-centric, suffering from high Word Error Rates (WER) on Urdu input, unnatural speech synthesis, and lacking domain-specific knowledge of Pakistani real estate (e.g., Marla units, DHA/Bahria societies). 
+
+The ORICALO project addresses this gap by developing a fully open-source, locally deployable Urdu-Native Voice Agent. It automates inbound inquiries and outbound lead qualification through natural Urdu conversations, integrating with a CRM for lead management and post-call analytics without relying on expensive, privacy-concerning offshore cloud APIs.
+
+\section{Existing Solutions}
+
+\begin{table}[H]
+\centering
+\caption{Comparison of Existing Voice AI Solutions}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{|p{3cm}|p{11cm}|}
+\hline
+\textbf{System} & \textbf{Limitations} \\ \hline
+Bland AI / Vapi & Cloud-based, English-centric; high latency for South Asia; lacks CRM and RAG for local property data. \\ \hline
+Synthflow & No Urdu ASR; unnatural TTS; no real estate domain knowledge. \\ \hline
+ORICALO (Proposed) & Open-source, local Urdu voice agent with RAG, CRM, Analytics, and Twilio outbound routing. \\ \hline
+\end{tabular}
+\label{tab:existing-solutions}
+\end{table}
+
+\section{Scope and Modules}
+
+The scope encompasses the development of an end-to-end Urdu Voice Agent integrating six functional modules: 
+1) Automatic Speech Recognition (Whisper/Deepgram) optimized for Urdu; 2) LLM-Based Dialogue Manager (Gemini/Llama 3); 3) Retrieval-Augmented Generation (ChromaDB) and ML Property Valuation; 4) Urdu Text-to-Speech (Uplift AI); 5) Real-Time Voice Orchestrator with Barge-In support; and 6) PostgreSQL-backed CRM with Twilio Telephony and Post-Call Analytics. 
+
+Out-of-scope items include large-scale commercial telephony infrastructure, regulatory compliance certification (PECA), and multi-lingual expansion beyond Urdu and English fallback.
+
+\section{Work Division}
+
+\begin{table}[H]
+\centering
+\caption{Work Division Across All Three Iterations}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|p{4.5cm}|p{4.5cm}|p{4.5cm}|}
+\hline
+\textbf{Iteration} & \textbf{Abdul Rafay} & \textbf{Sumeed Jawad Kanwar} & \textbf{Huzaifa Mahmood} \\ \hline
+Iteration 1 (Sep--Oct) & ASR baseline evaluation, requirements gathering, synthetic dialogue generation & LLM groundwork, WebSocket streaming protocol design, frontend console scaffolding & Lexicon list compilation, real estate dataset sourcing, ethics and privacy documentation \\ \hline
+Iteration 2 (Nov--Dec) & RAG pipeline implementation, ChromaDB integration, dialogue flow design, price-predictor prototype & LLM/policy integration, prompt scaffolding for real estate persona, Gemini and HuggingFace backends & Streaming STT API, ASR optimisation and VAD integration, dataset schema unification \\ \hline
+Iteration 3 (Feb--May) & CRM module, analytics pipeline, lead scoring, Twilio outbound calling & Voice Orchestrator, barge-in state machine, TTS integration (Uplift AI / ElevenLabs / Edge TTS) & ML valuation model training, PostgreSQL/Docker setup, full test suite (unit and integration) \\ \hline
+\end{tabular}
+\label{tab:work-division}
+\end{table}
