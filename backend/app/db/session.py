@@ -73,7 +73,8 @@ async def _probe(url: str, label: str) -> bool:
         connection_method = label
         AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         print(f"[OK] Connected via {label}")
-        await old_engine.dispose()
+        if old_engine is not None:
+            await old_engine.dispose()
         return True
 
     except (asyncio.TimeoutError, asyncio.CancelledError):

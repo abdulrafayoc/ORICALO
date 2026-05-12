@@ -5,44 +5,79 @@ from typing import List
 
 from app.db.session import get_db
 from app.db_tables.agent import Agent
+from app.db_tables.user import User
 from app.schemas.agent import AgentCreate, AgentRead
+from app.core.auth import get_current_user
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 @router.get("/", response_model=List[AgentRead])
-async def read_agents(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def read_agents(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        result = await db.execute(select(Agent).offset(skip).limit(limit))
+        result = await db.execute(
+            select(Agent)
+            .filter(Agent.organization_id == current_user.organization_id)
+            .offset(skip)
+            .limit(limit)
+        )
         agents = result.scalars().all()
         return agents
     except Exception as e:
-        # DB is down — return empty list so the frontend doesn't crash
         print(f"[agents] DB read failed: {e}")
         return []
 
 
 @router.post("/", response_model=AgentRead)
-async def create_agent(agent: AgentCreate, db: AsyncSession = Depends(get_db)):
-    db_agent = Agent(**agent.model_dump())
+async def create_agent(
+    agent: AgentCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_agent = Agent(
+        **agent.model_dump(),
+        organization_id=current_user.organization_id
+    )
     db.add(db_agent)
     await db.commit()
     await db.refresh(db_agent)
     return db_agent
 
 @router.get("/{agent_id}", response_model=AgentRead)
-async def read_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Agent).filter(Agent.id == agent_id))
+async def read_agent(
+    agent_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Agent)
+        .filter(Agent.id == agent_id)
+        .filter(Agent.organization_id == current_user.organization_id)
+    )
     agent = result.scalars().first()
     if agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Agent not found or access denied")
     return agent
 
 @router.put("/{agent_id}", response_model=AgentRead)
-async def update_agent(agent_id: int, agent_update: AgentCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Agent).filter(Agent.id == agent_id))
+async def update_agent(
+    agent_id: int, 
+    agent_update: AgentCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Agent)
+        .filter(Agent.id == agent_id)
+        .filter(Agent.organization_id == current_user.organization_id)
+    )
     db_agent = result.scalars().first()
     if db_agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Agent not found or access denied")
     
     for key, value in agent_update.model_dump().items():
         setattr(db_agent, key, value)
@@ -52,11 +87,19 @@ async def update_agent(agent_id: int, agent_update: AgentCreate, db: AsyncSessio
     return db_agent
 
 @router.delete("/{agent_id}")
-async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Agent).filter(Agent.id == agent_id))
+async def delete_agent(
+    agent_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Agent)
+        .filter(Agent.id == agent_id)
+        .filter(Agent.organization_id == current_user.organization_id)
+    )
     db_agent = result.scalars().first()
     if db_agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail="Agent not found or access denied")
     
     await db.delete(db_agent)
     await db.commit()

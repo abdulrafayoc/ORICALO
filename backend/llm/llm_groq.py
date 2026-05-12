@@ -386,7 +386,7 @@ Good example: "This is important - remember to check three things"
 
                     # Yield an Urdu "thinking" filler while the tools execute
                     # so there is no silent pause in the voice stream
-                    filler = "جی، ذرا دیکھتا ہوں۔"
+                    filler = "جی، ذرا دیکھتی ہوں۔"
                     yield filler
 
                     for tc in calls:

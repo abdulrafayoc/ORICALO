@@ -11,31 +11,46 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
+import logging
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Import all models to register them with Base metadata early
+from app.db.base import Base
+import app.db_tables.organization # noqa
+import app.db_tables.user         # noqa
+import app.db_tables.agent        # noqa
+import app.db_tables.listing      # noqa
+import app.db_tables.crm          # noqa
+
+from app.api.endpoints import auth as auth_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # --- Auto-create database tables on startup ---
-    from app.db.session import init_db, engine
-    from app.db.base import Base
-    import app.db_tables.agent    # noqa — registers models with Base
-    import app.db_tables.listing  # noqa
-    import app.db_tables.crm      # noqa
+    from app.db.session import init_db
 
     # 1. Probe remote DBs and promote engine (with timeouts + SQLite fallback)
     await init_db()
 
-    # 2. Create tables on whichever engine won
-    from app.db.session import engine as active_engine
-    try:
-        async with active_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as e:
-        print(f"⚠️  Table creation failed: {e}")
-        print("🔄 Continuing without database — some features may be limited")
+    # Tables managed by Alembic — run: alembic upgrade head
     
     yield
 
 app = FastAPI(title="ORICALO AI Backend", version="0.1.0", lifespan=lifespan)
+
+# Setup Rate Limiting
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Setup metrics early
 Instrumentator().instrument(app).expose(app)
@@ -70,7 +85,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers["Access-Control-Allow-Origin"] = origin or "*"
         headers["Access-Control-Allow-Credentials"] = "true"
 
-    print(f"[ERROR] Unhandled exception on {request.url.path}: {type(exc).__name__}: {exc}")
+    logger.error(f"Unhandled exception on {request.url.path}: {type(exc).__name__}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc)},
@@ -79,6 +94,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, crm_integration, crm_local, rag
 
+app.include_router(auth_router.router)
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
 app.include_router(analytics.router, prefix="/analytics")

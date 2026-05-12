@@ -1,0 +1,7 @@
+- STT: NOVA 3 Deepgram
+- GROQ inference for LLM: Open 20B
+- Uplift API for TTS 
+
+voice activity detection silvero 
+rag: paraphrase multilingual minilm
+AVM: xgboost regresion 

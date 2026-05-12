@@ -68,3 +68,8 @@ edge-tts>=6.1.0
 elevenlabs>=1.0.0
 python-socketio[asyncio_client]>=5.8.0  # Uplift AI WebSocket TTS
 
+# Auth & Rate Limiting
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+slowapi>=0.1.9
+

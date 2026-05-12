@@ -22,6 +22,9 @@ class Lead(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization = relationship("Organization", back_populates="leads")
+
     # Relationships
     sessions = relationship("CallSession", back_populates="lead", cascade="all, delete-orphan")
     action_items = relationship("ActionItem", back_populates="lead", cascade="all, delete-orphan")

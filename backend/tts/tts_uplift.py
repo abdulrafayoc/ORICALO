@@ -43,12 +43,14 @@ class UpliftTTS:
 
     DEFAULT_VOICE  = "v_meklc281"     # Urdu female
     DEFAULT_FORMAT = "MP3_22050_32"   # Good balance of quality / bandwidth
+    DEFAULT_SPEED  = 1.15             # 15% faster — natural conversation pace
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         voice_id: Optional[str] = None,
         output_format: Optional[str] = None,
+        speed: Optional[float] = None,
     ):
         if not SOCKETIO_AVAILABLE:
             raise RuntimeError(
@@ -62,6 +64,8 @@ class UpliftTTS:
 
         self.voice_id      = voice_id or os.getenv("UPLIFT_VOICE_ID", self.DEFAULT_VOICE)
         self.output_format = output_format or os.getenv("UPLIFT_FORMAT", self.DEFAULT_FORMAT)
+        # Speed: 0.5–2.0. Set UPLIFT_SPEED env var or pass directly.
+        self.speed = speed or float(os.getenv("UPLIFT_SPEED", str(self.DEFAULT_SPEED)))
 
         self._sio: Optional[socketio.AsyncClient] = None
         self._connect_lock  = asyncio.Lock()
@@ -177,6 +181,7 @@ class UpliftTTS:
                     "text":         text,
                     "voiceId":      self.voice_id,
                     "outputFormat": self.output_format,
+                    "speed":        self.speed,
                 },
                 namespace=_NAMESPACE,
             )

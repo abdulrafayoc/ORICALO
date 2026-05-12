@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, Text
+from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 class Agent(Base):
@@ -10,3 +11,6 @@ class Agent(Base):
     description = Column(String, nullable=True)
     system_prompt = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True)
+    
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization = relationship("Organization", back_populates="agents")

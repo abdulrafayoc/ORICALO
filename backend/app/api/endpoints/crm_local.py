@@ -2,71 +2,83 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import List, Optional
 import os
+from pydantic import BaseModel
 
 from twilio.rest import Client
 from app.db.session import get_db
 from app.db_tables.crm import Lead, CallSession, ActionItem
+from app.db_tables.user import User
+from app.core.auth import get_current_user
 
 router = APIRouter()
 
 @router.get("/leads")
-async def get_leads(db: AsyncSession = Depends(get_db)):
-    """Fetch all leads representing CRM contacts."""
-    result = await db.execute(select(Lead).order_by(Lead.updated_at.desc()))
+async def get_leads(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Fetch all leads representing CRM contacts for the organization."""
+    result = await db.execute(
+        select(Lead)
+        .filter(Lead.organization_id == current_user.organization_id)
+        .order_by(Lead.updated_at.desc())
+    )
     return result.scalars().all()
 
 @router.get("/leads/{lead_id}")
-async def get_lead(lead_id: int, db: AsyncSession = Depends(get_db)):
-    """Fetch a specific lead with its sessions and action items."""
+async def get_lead(lead_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Fetch a specific lead with its sessions and action items, within org bounds."""
     result = await db.execute(
         select(Lead)
         .options(selectinload(Lead.sessions), selectinload(Lead.action_items))
         .filter(Lead.id == lead_id)
+        .filter(Lead.organization_id == current_user.organization_id)
     )
     lead = result.scalars().first()
     if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        raise HTTPException(status_code=404, detail="Lead not found or access denied")
     return lead
 
 @router.get("/sessions")
-async def get_call_sessions(db: AsyncSession = Depends(get_db)):
-    """Fetch all call sessions."""
-    result = await db.execute(select(CallSession).order_by(CallSession.created_at.desc()))
+async def get_call_sessions(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Fetch all call sessions for the organization."""
+    # We join on Lead to filter by organization_id
+    result = await db.execute(
+        select(CallSession)
+        .join(Lead)
+        .filter(Lead.organization_id == current_user.organization_id)
+        .order_by(CallSession.created_at.desc())
+    )
     return result.scalars().all()
 
 @router.get("/action_items")
-async def get_action_items(db: AsyncSession = Depends(get_db)):
-    """Fetch pending action items for CRM agents."""
+async def get_action_items(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Fetch pending action items for the organization's CRM agents."""
     result = await db.execute(
         select(ActionItem)
+        .join(Lead)
         .options(selectinload(ActionItem.lead))
         .filter(ActionItem.status == "PENDING")
+        .filter(Lead.organization_id == current_user.organization_id)
         .order_by(ActionItem.created_at.desc())
     )
     return result.scalars().all()
 
 @router.post("/action_items/{item_id}/complete")
-async def complete_action_item(item_id: int, db: AsyncSession = Depends(get_db)):
-    """Mark an action item as completed."""
-    result = await db.execute(select(ActionItem).filter(ActionItem.id == item_id))
+async def complete_action_item(item_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Mark an action item as completed, within org bounds."""
+    result = await db.execute(
+        select(ActionItem)
+        .join(Lead)
+        .filter(ActionItem.id == item_id)
+        .filter(Lead.organization_id == current_user.organization_id)
+    )
     item = result.scalars().first()
     if not item:
-        raise HTTPException(status_code=404, detail="Action item not found")
+        raise HTTPException(status_code=404, detail="Action item not found or access denied")
     
     item.status = "COMPLETED"
-    
-    # If this was a human call request, we also turn off "needs_human" on the lead optionally
-    # But for now, just complete the task
     await db.commit()
     return {"status": "success", "message": "Action item completed"}
-
-from pydantic import BaseModel
-from typing import Optional
-
-class CallRequest(BaseModel):
-    public_url: str  # E.g. "my-ngrok.io"
 
 class LeadBase(BaseModel):
     name: str
@@ -85,10 +97,16 @@ class LeadCreate(LeadBase):
 class LeadUpdate(LeadBase):
     pass
 
+class CallRequest(BaseModel):
+    public_url: str
+
 @router.post("/leads")
-async def create_lead(payload: LeadCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new manual lead."""
-    new_lead = Lead(**payload.model_dump())
+async def create_lead(payload: LeadCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Create a new manual lead for the current organization."""
+    new_lead = Lead(
+        **payload.model_dump(),
+        organization_id=current_user.organization_id
+    )
     db.add(new_lead)
     try:
         await db.commit()
@@ -99,12 +117,16 @@ async def create_lead(payload: LeadCreate, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/leads/{lead_id}")
-async def update_lead(lead_id: int, payload: LeadUpdate, db: AsyncSession = Depends(get_db)):
-    """Update an existing lead's properties."""
-    result = await db.execute(select(Lead).filter(Lead.id == lead_id))
+async def update_lead(lead_id: int, payload: LeadUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Update an existing lead's properties, within org bounds."""
+    result = await db.execute(
+        select(Lead)
+        .filter(Lead.id == lead_id)
+        .filter(Lead.organization_id == current_user.organization_id)
+    )
     lead = result.scalars().first()
     if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        raise HTTPException(status_code=404, detail="Lead not found or access denied")
         
     for key, value in payload.model_dump().items():
         setattr(lead, key, value)
@@ -118,12 +140,16 @@ async def update_lead(lead_id: int, payload: LeadUpdate, db: AsyncSession = Depe
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/leads/{lead_id}")
-async def delete_lead(lead_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete a lead permanently, including its call history via cascade."""
-    result = await db.execute(select(Lead).filter(Lead.id == lead_id))
+async def delete_lead(lead_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Delete a lead permanently, including its call history via cascade, within org bounds."""
+    result = await db.execute(
+        select(Lead)
+        .filter(Lead.id == lead_id)
+        .filter(Lead.organization_id == current_user.organization_id)
+    )
     lead = result.scalars().first()
     if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        raise HTTPException(status_code=404, detail="Lead not found or access denied")
         
     try:
         await db.delete(lead)

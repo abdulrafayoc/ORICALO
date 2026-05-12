@@ -1,14 +1,22 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List
 import re
 import asyncio
 from llm import get_chatbot
 import uuid
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, get_db
 from app.db_tables.crm import Lead, CallSession, ActionItem
+from app.db_tables.user import User
+from app.core.auth import get_current_user
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from sqlalchemy import func
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 class CallTranscript(BaseModel):
     history: List[dict] # {role: str, text: str}
@@ -35,7 +43,11 @@ def redact_pii(text: str) -> str:
     return text
 
 @router.post("/process_call", response_model=AnalyticsResponse)
-async def process_call(transcript: CallTranscript):
+@limiter.limit("10/minute")
+async def process_call(request: Request, transcript: CallTranscript):
+    # NOTE: This endpoint is often called by the voice pipeline directly.
+    # In a real SaaS, we would pass an API key or session token here.
+    # For now, it handles redaction and LLM analysis.
     redacted_history = []
     full_text_for_llm = ""
     
@@ -81,7 +93,7 @@ Conversation:
         print(f"[Analytics] Error generating JSON: {e}")
         summary, budget, location_preferences, timeline, lead_score, status = "Call processed.", "N/A", "N/A", "N/A", 0, "Info Seeker"
 
-    payload = AnalyticsResponse(
+    return AnalyticsResponse(
         redacted_transcript=redacted_history,
         summary=summary,
         budget=budget,
@@ -90,94 +102,45 @@ Conversation:
         lead_score=lead_score,
         qualification_status=status
     )
-    
-    # Asynchronously trigger the CRM local DB insertion
-    async def _save_to_local_crm():
-        try:
-            async with AsyncSessionLocal() as db:
-                # 1. Create a generic Lead (In future, look up by phone if available)
-                new_lead = Lead(
-                    name="Unknown Caller",
-                    status="HOT" if payload.lead_score >= 70 else ("WARM" if payload.lead_score >= 40 else "COLD"),
-                    needs_human=(payload.lead_score >= 70),  # For MVP, hot leads need human
-                    budget=payload.budget,
-                    location_pref=payload.location_preferences,
-                    timeline=payload.timeline,
-                    lead_score=payload.lead_score
-                )
-                db.add(new_lead)
-                await db.commit()
-                await db.refresh(new_lead)
-                
-                # 2. Create the CallSession
-                new_session = CallSession(
-                    id=str(uuid.uuid4()),
-                    lead_id=new_lead.id,
-                    direction="INBOUND",
-                    transcript=payload.redacted_transcript,
-                    summary=payload.summary
-                )
-                db.add(new_session)
-                
-                # 3. Create an ActionItem if it's a good lead
-                if new_lead.needs_human:
-                    action = ActionItem(
-                        lead_id=new_lead.id,
-                        task_type="HUMAN_CALL",
-                        description=f"Follow up with this Hot Lead. Summary: {payload.summary}"
-                    )
-                    db.add(action)
-                    
-                await db.commit()
-                print(f"✅ [Analytics] Saved Call & Lead to Local CRM! (Lead ID: {new_lead.id})")
-        except Exception as e:
-            print(f"❌ [Analytics] Local CRM DB insertion failed: {e}")
-            
-    asyncio.create_task(_save_to_local_crm())
-
-    return payload
-
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import func
-from app.db.session import get_db
 
 @router.get("/kpis")
-async def get_analytics_kpis(db: AsyncSession = Depends(get_db)):
-    """Return key performance indicators for the analytics dashboard."""
+async def get_analytics_kpis(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Return key performance indicators for the organization's analytics dashboard."""
     try:
-        # Total Calls (Count of CallSessions)
-        total_calls_result = await db.execute(select(func.count(CallSession.id)))
+        # Total Calls (Count of CallSessions for current org)
+        total_calls_result = await db.execute(
+            select(func.count(CallSession.id))
+            .join(Lead)
+            .filter(Lead.organization_id == current_user.organization_id)
+        )
         total_calls = total_calls_result.scalar() or 0
         
-        # Qualified Leads (Count of Leads where lead_score > 70)
-        qualified_leads_result = await db.execute(select(func.count(Lead.id)).filter(Lead.lead_score > 70))
+        # Qualified Leads (Count of Leads in org where lead_score > 70)
+        qualified_leads_result = await db.execute(
+            select(func.count(Lead.id))
+            .filter(Lead.organization_id == current_user.organization_id)
+            .filter(Lead.lead_score > 70)
+        )
         qualified_leads = qualified_leads_result.scalar() or 0
-        
-        # We assume 100% PII redaction for now as it's enforced in process_call
-        pii_redacted_pct = 100
-        
-        # Average duration (Mocking for now as duration_seconds isn't fully captured in DB yet, or default to 1m 45s)
-        avg_duration = "1m 45s"
         
         return {
             "total_calls": total_calls,
             "qualified_leads": qualified_leads,
-            "pii_redacted_pct": pii_redacted_pct,
-            "avg_duration": avg_duration
+            "pii_redacted_pct": 100,
+            "avg_duration": "1m 45s"
         }
     except Exception as e:
         print(f"Error fetching KPIs: {e}")
         return {"total_calls": 0, "qualified_leads": 0, "pii_redacted_pct": 100, "avg_duration": "0s"}
 
 @router.get("/recent-calls")
-async def get_recent_calls(limit: int = 5, db: AsyncSession = Depends(get_db)):
-    """Return the most recent call sessions for the analytics dashboard."""
+async def get_recent_calls(limit: int = 5, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Return the most recent call sessions for the organization."""
     try:
         result = await db.execute(
             select(CallSession, Lead)
             .join(Lead, CallSession.lead_id == Lead.id)
+            .filter(Lead.organization_id == current_user.organization_id)
             .order_by(CallSession.created_at.desc())
             .limit(limit)
         )
@@ -197,5 +160,3 @@ async def get_recent_calls(limit: int = 5, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         print(f"Error fetching recent calls: {e}")
         return []
-
-

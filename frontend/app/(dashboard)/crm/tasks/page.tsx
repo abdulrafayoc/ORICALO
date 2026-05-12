@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckSquare, Check, Phone, ArrowUpRight, Calendar, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api";
 
 interface Lead {
   id: number;
@@ -26,17 +27,22 @@ export default function CRMTasks() {
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState<number | null>(null);
 
-  const fetchTasks = () => {
-    fetch("http://127.0.0.1:8000/crm/action_items")
-      .then(res => res.json())
-      .then(data => {
+  const fetchTasks = async () => {
+    try {
+      const res = await apiFetch("/crm/action_items");
+      const data = await res.json();
+      if (Array.isArray(data)) {
         setTasks(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch tasks", err);
-        setLoading(false);
-      });
+      } else {
+        console.error("Expected array but got:", data);
+        setTasks([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch tasks", err);
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,7 +52,7 @@ export default function CRMTasks() {
   const handleCompleteTask = async (taskId: number) => {
     setCompletingId(taskId);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/crm/action_items/${taskId}/complete`, {
+      const res = await apiFetch(`/crm/action_items/${taskId}/complete`, {
         method: "POST"
       });
       if (res.ok) {

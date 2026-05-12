@@ -13,5 +13,19 @@ export const WS_BASE = API_BASE.replace(/^http/, "ws");
  * Keeps the same signature so callers can still use .json(), .ok, etc.
  */
 export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-    return fetch(`${API_BASE}${path}`, init);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('oricalo_access_token') : null;
+    
+    const headers = new Headers(init?.headers);
+    if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+    
+    if (init?.body && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+    }
+
+    return fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers,
+    });
 }
