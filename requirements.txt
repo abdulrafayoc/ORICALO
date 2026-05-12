@@ -45,6 +45,8 @@ httpx>=0.24.0               # Async HTTP client
 twilio>=9.0.0               # Telephony Integration
 prometheus-fastapi-instrumentator>=7.0.0 # Observability
 pytest>=8.0.0               # Testing framework
+pytest-asyncio>=0.23.0      # Async support for pytest
+aiosqlite>=0.19.0           # Async SQLite driver
 
 # Note:
 # - On Windows, you may need to install PyAudio using: pip install pipwin && pipwin install pyaudio

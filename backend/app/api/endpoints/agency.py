@@ -26,7 +26,7 @@ async def create_listing(
     payload: ListingCreate, 
     db: AsyncSession = Depends(get_db)
 ):
-    new_listing = Listing(**payload.dict())
+    new_listing = Listing(**payload.model_dump())
     db.add(new_listing)
     await db.commit()
     await db.refresh(new_listing)
@@ -62,7 +62,7 @@ async def update_listing(
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
     
-    for key, value in payload.dict(exclude_unset=True).items():
+    for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(listing, key, value)
         
     await db.commit()

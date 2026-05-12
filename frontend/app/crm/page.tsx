@@ -6,6 +6,7 @@ import { Users, Filter, ArrowRight, UserCircle2, Phone, Briefcase, Zap, AlertCir
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { LeadModal } from "./components/LeadModal";
+import { apiFetch } from "@/lib/api";
 
 interface Lead {
   id: number;
@@ -27,7 +28,7 @@ export default function CRMDashboard() {
   const [showModal, setShowModal] = useState(false);
 
   const fetchLeads = () => {
-    fetch("http://127.0.0.1:8000/crm/leads")
+    apiFetch("/crm/leads")
       .then(res => res.json())
       .then(data => {
         setLeads(data);

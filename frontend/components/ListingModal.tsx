@@ -66,7 +66,7 @@ export function ListingModal({ listing, onClose, onSave }: ListingModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
                 <div className="flex justify-between items-center p-6 border-b border-neutral-800">
                     <h3 className="text-xl font-bold text-white">{isEdit ? "Edit Listing" : "New Listing"}</h3>

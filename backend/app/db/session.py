@@ -27,56 +27,32 @@ SUPABASE_URL         = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY    = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-PROJECT_REF = "dbnwxwwkfvvlvojwqvzd"
-DB_PASSWORD = "drahmedrazashahid"
-
-# ── Connection URLs ───────────────────────────────────────────────────────────
-# Supabase Transaction Pooler — correct host + scoped username (postgres.PROJECT_REF)
-# Port 6543, prepared_statement_cache_size=0 required for pgBouncer
-POOLER_URLS = [
-    f"postgresql+asyncpg://postgres.{PROJECT_REF}:{DB_PASSWORD}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?ssl=require&prepared_statement_cache_size=0",
-    f"postgresql+asyncpg://postgres.{PROJECT_REF}:{DB_PASSWORD}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?ssl=require&prepared_statement_cache_size=0",
-]
-
-# Direct connection — bypasses pgBouncer, port 5432
-DIRECT_URL = f"postgresql+asyncpg://postgres:{DB_PASSWORD}@db.{PROJECT_REF}.supabase.co:5432/postgres?ssl=require"
-
-# Absolute fallback
-SQLITE_URL = "sqlite+aiosqlite:///./oricalo.db"
+# ── Database URL ──────────────────────────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ── Globals written by init_db() ─────────────────────────────────────────────
-# Starts as SQLite — replaced by init_db() once the async event loop is running.
-engine            = create_async_engine(SQLITE_URL, echo=False)
-connection_method = "SQLite (pre-startup default)"
+# Set to None initially. Will be initialized by init_db()
+engine = None
+connection_method = "None"
 use_supabase_rest = False
 
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+AsyncSessionLocal = None
 
 
 # ── Async startup probe ───────────────────────────────────────────────────────
 
 async def init_db():
     """
-    Called from FastAPI startup event. Probes remote DBs with a 3-second
-    timeout each and promotes the global engine to the first that responds.
-    Falls back to SQLite silently if all remote hosts are unreachable.
+    Called from FastAPI startup event. Probes the remote Neon DB.
     """
     global engine, connection_method, AsyncSessionLocal
 
-    # 1. Try Supabase Transaction Pooler (two regional endpoints)
-    for url in POOLER_URLS:
-        region = url.split("@")[1].split(".")[1]  # us-east-1 / ap-southeast-1
-        label  = f"Supabase Pooler ({region})"
-        if await _probe(url, label):
+    if DATABASE_URL:
+        if await _probe(DATABASE_URL, "Neon Postgres (from .env)"):
             return
 
-    # 2. Try direct connection
-    if await _probe(DIRECT_URL, "Supabase Direct (port 5432)"):
-        return
-
-    # 3. Stay on SQLite
-    print("⚠️  All remote DB connections failed — using local SQLite.")
-    connection_method = "SQLite (Fallback)"
+    print("ERROR: No remote DB configured or connection failed. Exiting or running without DB.")
+    connection_method = "Failed"
 
 
 async def _probe(url: str, label: str) -> bool:
@@ -84,10 +60,10 @@ async def _probe(url: str, label: str) -> bool:
     global engine, connection_method, AsyncSessionLocal
 
     masked = _mask(url)
-    print(f"🔗 Probing {label}: {masked}")
+    print(f"[CONN] Probing {label}: {masked}")
     test_engine = create_async_engine(url, pool_pre_ping=True, pool_size=2)
     try:
-        async with asyncio.timeout(4.0):
+        async with asyncio.timeout(10.0):
             async with test_engine.begin() as conn:
                 await conn.execute(text("SELECT 1"))
 
@@ -96,17 +72,17 @@ async def _probe(url: str, label: str) -> bool:
         engine = test_engine
         connection_method = label
         AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        print(f"✅ Connected via {label}")
+        print(f"[OK] Connected via {label}")
         await old_engine.dispose()
         return True
 
     except (asyncio.TimeoutError, asyncio.CancelledError):
-        print(f"⏱️  {label} timed out.")
+        print(f"[TIMEOUT] {label} timed out.")
     except Exception as e:
         err = str(e)
         if "@" in err:
             err = "…@" + err.split("@")[-1]
-        print(f"❌ {label} failed: {err}")
+        print(f"[ERROR] {label} failed: {err}")
 
     await test_engine.dispose()
     return False

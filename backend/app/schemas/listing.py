@@ -5,7 +5,7 @@ Mirrors the pattern used in schemas/agent.py.
 
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ListingBase(BaseModel):
@@ -35,5 +35,4 @@ class ListingOut(ListingBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

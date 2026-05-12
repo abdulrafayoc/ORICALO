@@ -88,7 +88,7 @@ class LeadUpdate(LeadBase):
 @router.post("/leads")
 async def create_lead(payload: LeadCreate, db: AsyncSession = Depends(get_db)):
     """Create a new manual lead."""
-    new_lead = Lead(**payload.dict())
+    new_lead = Lead(**payload.model_dump())
     db.add(new_lead)
     try:
         await db.commit()
@@ -106,7 +106,7 @@ async def update_lead(lead_id: int, payload: LeadUpdate, db: AsyncSession = Depe
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
         
-    for key, value in payload.dict().items():
+    for key, value in payload.model_dump().items():
         setattr(lead, key, value)
         
     try:

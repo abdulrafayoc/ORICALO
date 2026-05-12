@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { LeadModal } from "../components/LeadModal";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 interface ActionItem {
   id: number;
@@ -53,7 +54,7 @@ export default function LeadProfile({ params }: { params: Promise<{ id: string }
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchLead = () => {
-    fetch(`http://127.0.0.1:8000/crm/leads/${resolvedParams.id}`)
+    apiFetch(`/crm/leads/${resolvedParams.id}`)
       .then(res => res.json())
       .then(data => {
         setLead(data);
@@ -94,7 +95,7 @@ export default function LeadProfile({ params }: { params: Promise<{ id: string }
 
     setIsCalling(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/crm/leads/${lead.id}/outbound`, {
+      const res = await apiFetch(`/crm/leads/${lead.id}/outbound`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ public_url: pubUrl })
@@ -112,7 +113,7 @@ export default function LeadProfile({ params }: { params: Promise<{ id: string }
     if (!confirm("Are you sure you want to permanently delete this lead? All call transcripts will be destroyed.")) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/crm/leads/${lead.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/crm/leads/${lead.id}`, { method: "DELETE" });
       if (res.ok) router.push("/crm");
       else alert("Failed to delete lead");
     } catch (e: any) {

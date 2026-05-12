@@ -23,7 +23,7 @@ async def read_agents(skip: int = 0, limit: int = 100, db: AsyncSession = Depend
 
 @router.post("/", response_model=AgentRead)
 async def create_agent(agent: AgentCreate, db: AsyncSession = Depends(get_db)):
-    db_agent = Agent(**agent.dict())
+    db_agent = Agent(**agent.model_dump())
     db.add(db_agent)
     await db.commit()
     await db.refresh(db_agent)
@@ -44,7 +44,7 @@ async def update_agent(agent_id: int, agent_update: AgentCreate, db: AsyncSessio
     if db_agent is None:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    for key, value in agent_update.dict().items():
+    for key, value in agent_update.model_dump().items():
         setattr(db_agent, key, value)
     
     await db.commit()

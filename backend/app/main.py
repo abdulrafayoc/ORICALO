@@ -9,9 +9,33 @@ load_dotenv(dotenv_path=env_path)
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 from prometheus_fastapi_instrumentator import Instrumentator
 
-app = FastAPI(title="ORICALO AI Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Auto-create database tables on startup ---
+    from app.db.session import init_db, engine
+    from app.db.base import Base
+    import app.db_tables.agent    # noqa — registers models with Base
+    import app.db_tables.listing  # noqa
+    import app.db_tables.crm      # noqa
+
+    # 1. Probe remote DBs and promote engine (with timeouts + SQLite fallback)
+    await init_db()
+
+    # 2. Create tables on whichever engine won
+    from app.db.session import engine as active_engine
+    try:
+        async with active_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"⚠️  Table creation failed: {e}")
+        print("🔄 Continuing without database — some features may be limited")
+    
+    yield
+
+app = FastAPI(title="ORICALO AI Backend", version="0.1.0", lifespan=lifespan)
 
 # Setup metrics early
 Instrumentator().instrument(app).expose(app)
@@ -53,7 +77,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         headers=headers,
     )
 
-from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, crm_integration, crm_local
+from app.api.endpoints import stt, dialogue, valuation, agents, agency, voice_orchestrator, analytics, telephony, crm_integration, crm_local, rag
 
 app.include_router(stt.router)
 app.include_router(voice_orchestrator.router)
@@ -65,27 +89,8 @@ app.include_router(agents.router)
 app.include_router(agency.router)
 app.include_router(crm_integration.router, prefix="/crm_webhook") # rename old mock to webhook
 app.include_router(crm_local.router, prefix="/crm")
+app.include_router(rag.router)
 
-# --- Auto-create database tables on startup ---
-@app.on_event("startup")
-async def startup():
-    from app.db.session import init_db, engine
-    from app.db.base import Base
-    import app.db_tables.agent    # noqa — registers models with Base
-    import app.db_tables.listing  # noqa
-    import app.db_tables.crm      # noqa
-
-    # 1. Probe remote DBs and promote engine (with timeouts + SQLite fallback)
-    await init_db()
-
-    # 2. Create tables on whichever engine won
-    from app.db.session import engine as active_engine
-    try:
-        async with active_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as e:
-        print(f"⚠️  Table creation failed: {e}")
-        print("🔄 Continuing without database — some features may be limited")
 
 @app.get("/")
 async def root():
