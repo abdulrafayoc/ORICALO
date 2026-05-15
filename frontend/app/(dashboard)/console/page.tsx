@@ -93,8 +93,9 @@ export default function ConsolePage() {
 
     useEffect(() => {
         apiFetch("/agents/").then(r => r.json()).then(d => {
-            setAgents(d);
-            if (d.length > 0) setSelectedAgentId(d[0].id);
+            const agentsArray = Array.isArray(d) ? d : [];
+            setAgents(agentsArray);
+            if (agentsArray.length > 0) setSelectedAgentId(agentsArray[0].id);
         }).catch(console.error);
     }, []);
 
@@ -308,15 +309,15 @@ export default function ConsolePage() {
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-6">
             {/* ── Header ── */}
-            <header className="flex items-center justify-between border-b border-neutral-800 pb-6">
+            <header className="flex items-center justify-between border-b border-slate-800 pb-6">
                 <div>
                     <h1 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
-                        <Terminal className="w-5 h-5 text-neutral-400" />
+                        <Terminal className="w-5 h-5 text-slate-400" />
                         Live Console
                     </h1>
-                    <div className="flex gap-4 text-xs font-mono text-neutral-500 mt-2">
+                    <div className="flex gap-4 text-xs font-mono text-slate-500 mt-2">
                         <span className="flex items-center gap-1">
-                            <div className={`w-2 h-2 rounded-full ${active ? "bg-emerald-500 animate-pulse" : "bg-neutral-600"}`} />
+                            <div className={`w-2 h-2 rounded-full ${active ? "bg-emerald-500 animate-pulse" : "bg-slate-600"}`} />
                             {active ? "SESSION ACTIVE" : "IDLE"}
                         </span>
                         {(latencySTT || latencyAudio) && (
@@ -333,7 +334,7 @@ export default function ConsolePage() {
                 <div className="flex gap-3 items-center">
                     <StatusIndicator modelStatus={modelStatus} statusMessage={statusMessage} />
                     <select
-                        className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-sm rounded-md px-3 py-1.5 outline-none hover:bg-neutral-800 transition-colors"
+                        className="bg-slate-900 border border-slate-800 text-slate-300 text-sm rounded-lg px-3 py-1.5 outline-none hover:bg-slate-800 transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         value={selectedAgentId ?? ""}
                         onChange={e => setSelectedAgentId(Number(e.target.value))}
                         disabled={active}
@@ -345,7 +346,7 @@ export default function ConsolePage() {
                     <button
                         onClick={runDemo}
                         disabled={isRecording}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 border
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border
                             ${isDemoRunning
                                 ? "bg-amber-500/10 text-amber-400 border-amber-500/40 hover:bg-amber-500/20"
                                 : "bg-indigo-500/10 text-indigo-400 border-indigo-500/40 hover:bg-indigo-500/20"
@@ -358,10 +359,10 @@ export default function ConsolePage() {
                     <button
                         onClick={isRecording ? stopRecording : startRecording}
                         disabled={isDemoRunning || isConnecting}
-                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-40
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-40
                             ${isRecording
                                 ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50"
-                                : "bg-white text-black hover:bg-neutral-200 border border-transparent"
+                                : "bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 border border-transparent shadow-lg shadow-indigo-500/20"
                             }`}
                     >
                         {isConnecting
@@ -377,28 +378,28 @@ export default function ConsolePage() {
             {/* ── Main Grid ── */}
             <main className="flex-1 grid grid-cols-12 gap-6 min-h-0">
                 {/* Transcript terminal */}
-                <div className="col-span-12 lg:col-span-8 bg-black border border-neutral-800 rounded-xl flex flex-col overflow-hidden">
-                    <div className="bg-neutral-900 border-b border-neutral-800 px-4 py-2 flex items-center justify-between shrink-0">
-                        <span className="text-xs font-mono text-neutral-400">/var/log/transcript.log</span>
+                <div className="col-span-12 lg:col-span-8 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl flex flex-col overflow-hidden">
+                    <div className="bg-slate-900/50 border-b border-slate-800 px-4 py-2 flex items-center justify-between shrink-0">
+                        <span className="text-xs font-mono text-slate-400">/var/log/transcript.log</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] bg-neutral-800 text-neutral-500 px-1.5 py-0.5 rounded">STREAMING</span>
+                            <span className="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">STREAMING</span>
                             <span className="text-[10px] bg-emerald-900/50 text-emerald-400 px-1.5 py-0.5 rounded">BARGE-IN</span>
                         </div>
                     </div>
                     <div className="flex-1 p-6 font-mono text-sm overflow-y-auto space-y-2">
                         {transcript.length === 0 && (
-                            <div className="text-neutral-700 italic">Waiting for input stream…</div>
+                            <div className="text-slate-600 italic">Waiting for input stream…</div>
                         )}
                         {transcript.map((line, i) => (
                             <div key={i} className="break-words flex gap-3">
-                                <span className="text-neutral-600 shrink-0 select-none text-xs mt-0.5">
+                                <span className="text-slate-600 shrink-0 select-none text-xs mt-0.5">
                                     {new Date().toLocaleTimeString()}
                                 </span>
                                 <span className={`font-urdu ${
-                                    line.startsWith("System:") ? "text-yellow-600" :
+                                    line.startsWith("System:") ? "text-yellow-400" :
                                     line.startsWith("🎙️") ? "text-blue-400" :
                                     line.startsWith("🤖") ? "text-emerald-400" :
-                                    "text-neutral-300"
+                                    "text-slate-300"
                                 }`}>
                                     {line}
                                 </span>
@@ -411,20 +412,20 @@ export default function ConsolePage() {
                 {/* Right panel */}
                 <div className="col-span-12 lg:col-span-4 flex flex-col gap-4 min-h-0 overflow-y-auto">
                     {/* State visualizer */}
-                    <div className={`bg-neutral-900 border rounded-xl p-6 flex flex-col items-center justify-center gap-3 min-h-[200px] transition-all duration-300 ${
+                    <div className={`bg-slate-900/50 backdrop-blur-xl border rounded-2xl p-6 flex flex-col items-center justify-center gap-3 min-h-[200px] transition-all duration-300 ${
                         agentState === "error" ? "border-red-500/40 bg-red-950/10" :
                         agentState === "speaking" ? "border-indigo-500/40" :
                         agentState === "listening" ? "border-emerald-500/40" :
                         agentState === "processing" ? "border-emerald-500/30" :
-                        "border-neutral-800"
+                        "border-slate-800"
                     }`}>
                         {/* IDLE */}
                         {agentState === "idle" && !sessionSummary && (
                             <>
-                                <div className="w-16 h-16 rounded-full border-2 border-neutral-700 flex items-center justify-center">
-                                    <Mic className="w-7 h-7 text-neutral-600" />
+                                <div className="w-16 h-16 rounded-full border-2 border-slate-700 flex items-center justify-center">
+                                    <Mic className="w-7 h-7 text-slate-500" />
                                 </div>
-                                <p className="text-neutral-500 text-sm text-center">
+                                <p className="text-slate-500 text-sm text-center">
                                     Click &quot;Start Session&quot; or &quot;Run Demo&quot;
                                 </p>
                             </>
@@ -475,7 +476,7 @@ export default function ConsolePage() {
                                 </div>
                                 <p className="text-indigo-400 text-sm font-medium">Speaking…</p>
                                 {(latencySTT || latencyAudio) && (
-                                    <div className="text-[11px] text-neutral-500 text-center space-y-0.5">
+                                    <div className="text-[11px] text-slate-500 text-center space-y-0.5">
                                         {latencySTT && <div>STT→Reply: <span className="text-indigo-400">{latencySTT}ms</span></div>}
                                         {latencyAudio && <div>Reply→Audio: <span className="text-indigo-400">{latencyAudio}ms</span></div>}
                                     </div>
@@ -503,11 +504,11 @@ export default function ConsolePage() {
                             <div className="w-full text-center space-y-3">
                                 <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
                                 <p className="text-white font-medium text-sm">Session Complete</p>
-                                <div className="text-xs text-neutral-400 space-y-1">
+                                <div className="text-xs text-slate-400 space-y-1">
                                     <div>Duration: <span className="text-white">{Math.floor(sessionSummary.duration / 60)}m {sessionSummary.duration % 60}s</span></div>
                                     <div>Turns: <span className="text-white">{sessionSummary.turns}</span></div>
                                 </div>
-                                <p className="text-xs text-neutral-500 italic line-clamp-2 px-2">{sessionSummary.preview}</p>
+                                <p className="text-xs text-slate-500 italic line-clamp-2 px-2">{sessionSummary.preview}</p>
                                 <div className="flex gap-2 justify-center">
                                     <a
                                         href="/crm"
@@ -517,7 +518,7 @@ export default function ConsolePage() {
                                     </a>
                                     <button
                                         onClick={() => setSessionSummary(null)}
-                                        className="px-3 py-1 bg-neutral-800 text-neutral-300 rounded text-xs hover:bg-neutral-700 transition-colors"
+                                        className="px-3 py-1 bg-slate-800 text-slate-300 rounded text-xs hover:bg-slate-700 transition-colors"
                                     >
                                         New Session
                                     </button>
@@ -527,16 +528,16 @@ export default function ConsolePage() {
                     </div>
 
                     {/* Latest response */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 flex flex-col">
-                        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Latest Response</h2>
-                        <div className="text-neutral-200 whitespace-pre-wrap break-words leading-relaxed font-urdu text-sm">
-                            {agentReply ?? <span className="text-neutral-700 italic">No output yet.</span>}
+                    <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 flex flex-col">
+                        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Latest Response</h2>
+                        <div className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed font-urdu text-sm">
+                            {agentReply ?? <span className="text-slate-600 italic">No output yet.</span>}
                         </div>
                     </div>
 
                     {/* Widget area */}
                     {activeWidget && widgetData && (
-                        <div className="transition-all duration-500 ease-out">
+                        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 transition-all duration-500 ease-out">
                             {activeWidget === "price" && (
                                 <PriceWidget
                                     minPrice={widgetData.min_price}

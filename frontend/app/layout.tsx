@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Noto_Nastaliq_Urdu } from "next/font/google";
+import { Inter, JetBrains_Mono, Noto_Nastaliq_Urdu, Noto_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,6 +24,12 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
+
+const playfairDisplayHeading = Playfair_Display({subsets:['latin'],variable:'--font-heading'});
+
+const notoSans = Noto_Sans({subsets:['latin'],variable:'--font-sans'});
+
 
 export default function RootLayout({
   children,
@@ -31,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning className={cn("dark", "font-sans", notoSans.variable, playfairDisplayHeading.variable)}>
       <body
         suppressHydrationWarning
         className={`${inter.variable} ${jetbrainsMono.variable} ${notoNastaliqUrdu.variable} antialiased bg-black text-white`}

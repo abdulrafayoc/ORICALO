@@ -1,6 +1,6 @@
 """
 Dialogue API endpoints for ORICALO Voice Agent.
-Handles LLM-based conversation, RAG retrieval, and price prediction.
+Handles LLM-based conversation, RAG retrieval, price prediction, and calendar booking.
 """
 
 import asyncio
@@ -9,6 +9,7 @@ import logging
 import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
+import httpx
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
@@ -161,6 +162,16 @@ _LOCATION_PREFIXES = {
     "dha", "bahria", "johar", "gulberg", "model town",
     "cantt", "f-", "e-", "i-", "g-", "cavalry", "askari"
 }
+_CALENDAR_KEYWORDS = {
+    "book", "schedule", "appointment", "meeting", "visit",
+    "mila", "milna", "meeting", "appointment", "schedule",
+    "book", "visit", "viewing", "dekhna", "mulk"
+}
+_MEETING_TYPES = {
+    "visit": {"visit", "viewing", "dekhna", "mulk", "ghar dekhna"},
+    "call": {"call", "phone", "baat", "call karna"},
+    "video": {"video", "zoom", "video call", "online"}
+}
 
 # Ordered from most specific to least to get best match first
 _KNOWN_LOCATIONS = [
@@ -195,6 +206,7 @@ def _detect_intent(text: str) -> Dict[str, bool]:
         "wants_price": bool(words & _PRICE_KEYWORDS),
         "wants_search": bool(words & _SEARCH_KEYWORDS),
         "has_location": any(kw in text_lower for kw in _LOCATION_PREFIXES),
+        "wants_calendar": bool(words & _CALENDAR_KEYWORDS),
     }
 
 
@@ -213,6 +225,68 @@ def _extract_area_marla(text: str) -> Optional[float]:
     if match:
         return float(match.group(1))
     return None
+
+
+def _extract_date(text: str) -> Optional[str]:
+    """Extract date from text in various formats (YYYY-MM-DD, DD/MM/YYYY, etc.)."""
+    # Try YYYY-MM-DD format
+    match = re.search(r"(\d{4}-\d{2}-\d{2})", text)
+    if match:
+        return match.group(1)
+    
+    # Try DD/MM/YYYY or DD-MM-YYYY format
+    match = re.search(r"(\d{2}[/\-]\d{2}[/\-]\d{4})", text)
+    if match:
+        date_str = match.group(1)
+        # Convert to YYYY-MM-DD
+        parts = re.split(r"[/\-]", date_str)
+        if len(parts) == 3:
+            return f"{parts[2]}-{parts[1]}-{parts[0]}"
+    
+    # Try relative dates (tomorrow, next week, etc.)
+    text_lower = text.lower()
+    if "tomorrow" in text_lower or "کل" in text_lower:
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        return tomorrow.strftime("%Y-%m-%d")
+    elif "today" in text_lower or "آج" in text_lower:
+        return datetime.date.today().strftime("%Y-%m-%d")
+    
+    return None
+
+
+def _extract_time(text: str) -> Optional[str]:
+    """Extract time from text in HH:MM format (12-hour or 24-hour)."""
+    # Try HH:MM format (24-hour)
+    match = re.search(r"(\d{1,2}):(\d{2})", text)
+    if match:
+        hour = int(match.group(1))
+        minute = int(match.group(2))
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return f"{hour:02d}:{minute:02d}"
+    
+    # Try 12-hour format with AM/PM
+    match = re.search(r"(\d{1,2}):(\d{2})\s*(am|pm)", text, re.IGNORECASE)
+    if match:
+        hour = int(match.group(1))
+        minute = int(match.group(2))
+        period = match.group(3).lower()
+        if period == "pm" and hour != 12:
+            hour += 12
+        elif period == "am" and hour == 12:
+            hour = 0
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return f"{hour:02d}:{minute:02d}"
+    
+    return None
+
+
+def _extract_meeting_type(text: str) -> Optional[str]:
+    """Extract meeting type from text (VISIT, CALL, VIDEO)."""
+    text_lower = text.lower()
+    for meeting_type, keywords in _MEETING_TYPES.items():
+        if any(kw in text_lower for kw in keywords):
+            return meeting_type.upper()
+    return "VISIT"  # Default to visit if not specified
 
 
 # ============================================================================
@@ -293,6 +367,63 @@ def _get_price_estimate_sync(location: str, area_marla: float = 10) -> Dict[str,
 
 
 # ============================================================================
+# Calendar Booking Helper
+# ============================================================================
+
+async def _check_calendar_availability(date: str, lead_id: Optional[int] = None) -> Dict[str, Any]:
+    """Check calendar availability for a given date."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            params = {"date": date}
+            if lead_id:
+                params["lead_id"] = lead_id
+            response = await client.get(
+                "http://localhost:8000/calendar/availability/" + date,
+                params=params
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"error": "Failed to check availability"}
+    except Exception as e:
+        logger.error(f"[Calendar] Availability check failed: {e}")
+        return {"error": str(e)}
+
+
+async def _book_meeting(
+    lead_id: int,
+    meeting_type: str,
+    date: str,
+    time: str,
+    title: Optional[str] = None,
+    notes: Optional[str] = None
+) -> Dict[str, Any]:
+    """Book a meeting via the calendar API."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            payload = {
+                "lead_id": lead_id,
+                "meeting_type": meeting_type,
+                "scheduled_date": date,
+                "scheduled_time": time,
+                "duration_minutes": 60,
+                "notes": notes
+            }
+            if title:
+                payload["title"] = title
+            
+            response = await client.post(
+                "http://localhost:8000/calendar/book",
+                json=payload
+            )
+            if response.status_code == 200:
+                return response.json()
+            return {"error": "Failed to book meeting"}
+    except Exception as e:
+        logger.error(f"[Calendar] Meeting booking failed: {e}")
+        return {"error": str(e)}
+
+
+# ============================================================================
 # API Endpoints
 # ============================================================================
 
@@ -300,7 +431,9 @@ DEFAULT_SYSTEM_PROMPT = (
     "You are an expert Urdu-speaking real estate agent for Pakistan. "
     "Help callers find properties, discuss prices, and schedule viewings. "
     "Always respond in Urdu unless the caller speaks English. "
-    "Be concise, helpful, and professional."
+    "Be concise, helpful, and professional. "
+    "When a user wants to book a meeting or visit, help them find available slots "
+    "between 9 AM and 10 PM and confirm the booking."
 )
 
 
@@ -310,7 +443,7 @@ async def dialogue_step(
     db: AsyncSession = Depends(get_db),
 ) -> DialogueStepResponse:
     """
-    Process a single dialogue turn: detect intent, run RAG + price concurrently,
+    Process a single dialogue turn: detect intent, run RAG + price + calendar concurrently,
     then generate an LLM reply using the agent's custom system prompt.
     """
     transcript = payload.latest_transcript
@@ -329,9 +462,10 @@ async def dialogue_step(
         except Exception as e:
             logger.warning(f"[Dialogue] Could not load agent {payload.agent_id}: {e}")
 
-    # --- Run RAG + Price estimation concurrently ---
+    # --- Run RAG + Price + Calendar concurrently ---
     rag_task = None
     price_task = None
+    calendar_task = None
 
     if intent["wants_search"] or intent["has_location"]:
         rag_task = asyncio.create_task(
@@ -345,6 +479,36 @@ async def dialogue_step(
             asyncio.to_thread(_get_price_estimate_sync, location, area)
         )
 
+    if intent["wants_calendar"]:
+        # Extract calendar booking details
+        date = _extract_date(transcript)
+        time = _extract_time(transcript)
+        meeting_type = _extract_meeting_type(transcript)
+        
+        if date and time:
+            # Try to book the meeting directly
+            lead_id = payload.metadata.get("lead_id") if payload.metadata else None
+            if lead_id:
+                calendar_task = asyncio.create_task(
+                    _book_meeting(
+                        lead_id=lead_id,
+                        meeting_type=meeting_type,
+                        date=date,
+                        time=time,
+                        notes=f"Booked via voice agent: {transcript}"
+                    )
+                )
+            else:
+                # Just check availability if no lead_id
+                calendar_task = asyncio.create_task(
+                    _check_calendar_availability(date)
+                )
+        elif date:
+            # Check availability for the date
+            calendar_task = asyncio.create_task(
+                _check_calendar_availability(date)
+            )
+
     # Await tasks concurrently
     rag_context, rag_results = ("", [])
     if rag_task:
@@ -353,6 +517,22 @@ async def dialogue_step(
     if price_task:
         price_data = await price_task
         actions.append(DialogueAction(type="show_price", payload=price_data))
+
+    if calendar_task:
+        calendar_result = await calendar_task
+        if "error" not in calendar_result:
+            if "id" in calendar_result:
+                # Meeting was booked successfully
+                actions.append(DialogueAction(
+                    type="meeting_booked",
+                    payload=calendar_result
+                ))
+            elif "available_slots" in calendar_result:
+                # Availability check returned
+                actions.append(DialogueAction(
+                    type="calendar_availability",
+                    payload=calendar_result
+                ))
 
     # Build listings action from RAG results
     if rag_results and intent["wants_search"]:
@@ -392,6 +572,8 @@ async def dialogue_step(
             reply = "جی ہاں، میں آپ کے لیے پراپرٹیز تلاش کر رہا ہوں۔ براہ کرم تھوڑا انتظار کریں۔"
         elif intent["wants_price"]:
             reply = "میں آپ کے لیے قیمت کا تخمینہ لگا رہا ہوں۔"
+        elif intent["wants_calendar"]:
+            reply = "جی ہاں، میں آپ کے لیے میٹنگ بک کر سکتا ہوں۔ براہ کرم تاریخ اور وقت بتائیں۔"
         else:
             reply = "جی، میں آپ کی مدد کے لیے حاضر ہوں۔ آپ کو کیسی پراپرٹی چاہیے؟"
 

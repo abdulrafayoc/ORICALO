@@ -28,6 +28,7 @@ class Lead(Base):
     # Relationships
     sessions = relationship("CallSession", back_populates="lead", cascade="all, delete-orphan")
     action_items = relationship("ActionItem", back_populates="lead", cascade="all, delete-orphan")
+    meetings = relationship("Meeting", back_populates="lead", cascade="all, delete-orphan")
 
 
 class CallSession(Base):
@@ -61,3 +62,24 @@ class ActionItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     lead = relationship("Lead", back_populates="action_items")
+
+
+class Meeting(Base):
+    __tablename__ = "meetings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    lead_id = Column(Integer, ForeignKey("leads.id"), nullable=False)
+    
+    meeting_type = Column(String) # VISIT, CALL, VIDEO
+    title = Column(String, nullable=True)
+    scheduled_date = Column(DateTime(timezone=True), nullable=False)
+    scheduled_time = Column(String, nullable=False) # HH:MM format
+    duration_minutes = Column(Integer, default=60)
+    
+    status = Column(String, default="SCHEDULED") # SCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+    notes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    lead = relationship("Lead", back_populates="meetings")

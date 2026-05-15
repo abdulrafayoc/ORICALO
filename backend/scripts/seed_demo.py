@@ -21,7 +21,15 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 async def seed():
     engine = create_async_engine(DATABASE_URL, echo=False)
     Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    from sqlalchemy import select
     async with Session() as db:
+        result = await db.execute(select(Organization).where(Organization.slug == "oricalo-demo"))
+        existing_org = result.scalar_one_or_none()
+        if existing_org:
+            print("Demo data already seeded!")
+            print("   Login: demo@oricalo.com / demo1234")
+            return
+
         # Org
         org = Organization(name="Oricalo Demo Agency", slug="oricalo-demo", plan="pro")
         db.add(org)

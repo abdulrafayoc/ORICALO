@@ -55,14 +55,14 @@ export default function AnalyticsDashboard() {
     }
 
     return (
-        <div className="h-full flex flex-col gap-8 p-2">
-            <header className="flex items-center justify-between border-b border-neutral-800 pb-6">
+        <div className="h-full flex flex-col gap-6">
+            <header className="flex items-center justify-between border-b border-slate-800 pb-6">
                 <div>
                     <h1 className="text-2xl font-semibold text-white tracking-tight flex items-center gap-2">
                         <BarChart3 className="w-6 h-6 text-indigo-400" />
                         Post-Call Analytics
                     </h1>
-                    <p className="text-sm text-neutral-400 mt-1">
+                    <p className="text-sm text-slate-400 mt-1">
                         Review call summaries, KPIs, and PII-redacted safe transcripts.
                     </p>
                 </div>
@@ -70,29 +70,29 @@ export default function AnalyticsDashboard() {
 
             {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
+                    <div className="flex items-center gap-2 text-slate-400 mb-2">
                         <Users className="w-4 h-4" />
                         <span className="text-xs font-semibold uppercase tracking-wider">Total Calls</span>
                     </div>
                     <div className="text-3xl font-light text-white">{kpis?.total_calls ?? 0}</div>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
+                    <div className="flex items-center gap-2 text-slate-400 mb-2">
                         <ShieldCheck className="w-4 h-4 text-emerald-400" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400/80">PII Redacted</span>
                     </div>
                     <div className="text-3xl font-light text-white">{kpis?.pii_redacted_pct ?? 100}%</div>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
+                    <div className="flex items-center gap-2 text-slate-400 mb-2">
                         <AlertCircle className="w-4 h-4 text-indigo-400" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400/80">Qualified Leads</span>
                     </div>
                     <div className="text-3xl font-light text-white">{kpis?.qualified_leads ?? 0}</div>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-5">
-                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
+                    <div className="flex items-center gap-2 text-slate-400 mb-2">
                         <Clock className="w-4 h-4" />
                         <span className="text-xs font-semibold uppercase tracking-wider">Avg Duration</span>
                     </div>
@@ -102,13 +102,13 @@ export default function AnalyticsDashboard() {
 
             {/* Recent Call Detail */}
             {callToDisplay ? (
-                <div className="bg-black border border-neutral-800 rounded-xl overflow-hidden shadow-sm flex flex-col md:flex-row">
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col md:flex-row">
                     {/* Meta & Summary */}
-                    <div className="w-full md:w-1/3 bg-neutral-900/50 p-6 border-r border-neutral-800">
+                    <div className="w-full md:w-1/3 bg-slate-900/50 p-6 border-r border-slate-800">
                         <div className="flex justify-between items-start mb-6">
                             <div>
-                                <div className="text-xs font-mono text-neutral-500">{callToDisplay.id}</div>
-                                <div className="text-sm text-neutral-400 mt-1">{callToDisplay.date}</div>
+                                <div className="text-xs font-mono text-slate-500">{callToDisplay.id}</div>
+                                <div className="text-sm text-slate-400 mt-1">{callToDisplay.date}</div>
                             </div>
                             <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
                                 {callToDisplay.status}
@@ -116,11 +116,11 @@ export default function AnalyticsDashboard() {
                         </div>
 
                         <h3 className="text-sm font-semibold text-white mb-2">AI Summary</h3>
-                        <p className="text-sm text-neutral-300 leading-relaxed mb-6">
+                        <p className="text-sm text-slate-300 leading-relaxed mb-6">
                             {callToDisplay.summary}
                         </p>
 
-                        <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-900 p-3 rounded border border-neutral-800">
+                        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-800 p-3 rounded-lg border border-slate-700">
                             <ShieldCheck className="w-4 h-4 text-emerald-500" />
                             PII Automatically Redacted (CNIC, Phone)
                         </div>
@@ -129,18 +129,18 @@ export default function AnalyticsDashboard() {
                     {/* Transcript */}
                     <div className="flex-1 p-6">
                         <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                            <Terminal className="w-4 h-4 text-neutral-400" />
+                            <Terminal className="w-4 h-4 text-slate-400" />
                             Redacted Transcript
                         </h3>
 
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4">
                             {(callToDisplay.transcript || []).map((turn, i) => (
                                 <div key={i} className="flex flex-col gap-1">
-                                    <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                                    <span className="text-xs font-mono text-slate-500 uppercase tracking-wider">
                                         {turn.role}
                                     </span>
-                                    <div className={`text-sm leading-relaxed font-urdu rounded px-4 py-3 ${turn.role === 'user'
-                                        ? 'bg-neutral-900 text-blue-300 border border-neutral-800'
+                                    <div className={`text-sm leading-relaxed font-urdu rounded-xl px-4 py-3 ${turn.role === 'user'
+                                        ? 'bg-slate-800 text-blue-300 border border-slate-700'
                                         : 'bg-indigo-950/30 text-emerald-300 border border-indigo-900/30'
                                         }`}>
                                         {/* Highlight Redactions */}
@@ -157,7 +157,7 @@ export default function AnalyticsDashboard() {
                     </div>
                 </div>
             ) : (
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-12 text-center text-neutral-500">
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-12 text-center text-slate-500">
                     <Terminal className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p>No call data available.</p>
                     <p className="text-xs mt-2 opacity-60">Complete a call in the console to generate analytics.</p>
