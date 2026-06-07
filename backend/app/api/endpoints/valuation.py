@@ -78,6 +78,11 @@ def _marla_to_sqft(marla: float, location_str: str) -> float:
     return marla * factor
 
 
+def _to_sqft(marla: float, location_str: str) -> float:
+    """Backward-compatible alias used by dialogue and older callers."""
+    return _marla_to_sqft(marla, location_str)
+
+
 def _build_features(req: ValuationRequest, area_sqft: float) -> pd.DataFrame:
     """
     Assemble the complete feature DataFrame that the v2 pipeline expects.

@@ -33,3 +33,7 @@ data/test_audio/telephony_8k/
 
 .env
 /data
+
+#AI Context
+.superpowers/
+.claude/

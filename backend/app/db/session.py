@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 import os
 import asyncio
+import time
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import httpx
@@ -61,9 +62,15 @@ async def _probe(url: str, label: str) -> bool:
 
     masked = _mask(url)
     print(f"[CONN] Probing {label}: {masked}")
-    test_engine = create_async_engine(url, pool_pre_ping=True, pool_size=2)
+    test_engine = create_async_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=2,
+        connect_args={"timeout": 20},
+    )
+    started_at = time.perf_counter()
     try:
-        async with asyncio.timeout(10.0):
+        async with asyncio.timeout(20.0):
             async with test_engine.begin() as conn:
                 await conn.execute(text("SELECT 1"))
 
@@ -72,13 +79,16 @@ async def _probe(url: str, label: str) -> bool:
         engine = test_engine
         connection_method = label
         AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        print(f"[OK] Connected via {label}")
+        elapsed = time.perf_counter() - started_at
+        print(f"[OK] Connected via {label} in {elapsed:.2f}s")
         if old_engine is not None:
             await old_engine.dispose()
         return True
 
     except (asyncio.TimeoutError, asyncio.CancelledError):
-        print(f"[TIMEOUT] {label} timed out.")
+        elapsed = time.perf_counter() - started_at
+        print(f"[TIMEOUT] {label} timed out after {elapsed:.2f}s.")
+        print("[HINT] Check DNS/network access to the Neon host, and verify the pooler URL is reachable from this machine.")
     except Exception as e:
         err = str(e)
         if "@" in err:
