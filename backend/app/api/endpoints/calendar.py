@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy import and_, or_
 from typing import List, Optional
-from datetime import datetime, time, timedelta
+from datetime import datetime, date, time, timedelta
 from pydantic import BaseModel
 import logging
 
@@ -206,6 +208,69 @@ async def check_availability(
     except Exception as e:
         logger.error(f"Error checking availability: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def book_meeting_for_org(
+    *,
+    lead_id: int,
+    agent_id: int,
+    meeting_type: str,
+    scheduled_date: str,    # "YYYY-MM-DD"
+    scheduled_time: str,    # "HH:MM" 24h
+    notes: str | None,
+    organization_id: int,
+    db: AsyncSession,
+) -> Meeting:
+    """Insert a Meeting row scoped to one org. No auth dependency.
+
+    Raises LookupError if the lead does not belong to this org.
+    Raises ValueError if scheduled_date or scheduled_time cannot be parsed.
+
+    Availability overlap check is intentionally skipped: the voice loop
+    pre-checks with check_availability before calling this helper, so
+    double-booking prevention is handled upstream. If you need strict
+    server-side enforcement, add is_time_slot_available() here.
+
+    agent_id is accepted for forward-compat with Task 3.4 but is not stored
+    on Meeting (no agent_id column on that table).
+    """
+    # Validate date/time — raise ValueError on bad input so the caller can
+    # surface it as a tool error without wrapping in HTTPException.
+    try:
+        date_obj = date.fromisoformat(scheduled_date)
+        time.fromisoformat(scheduled_time)  # validate; we store the raw string
+    except ValueError as e:
+        raise ValueError(f"Invalid date/time: {e}") from e
+
+    # Verify lead belongs to this org and fetch name for title generation.
+    # Single query: replaces the earlier select(Lead.id) to avoid a second roundtrip.
+    lead_row = await db.execute(
+        select(Lead).filter(
+            Lead.id == lead_id,
+            Lead.organization_id == organization_id,
+        )
+    )
+    lead = lead_row.scalars().first()
+    if lead is None:
+        raise LookupError(f"Lead {lead_id} not found in org {organization_id}")
+
+    default_title = f"{meeting_type.upper()} - {lead.name}"
+
+    meeting = Meeting(
+        lead_id=lead_id,
+        # agent_id: no column on Meeting; accepted kwarg discarded here
+        meeting_type=meeting_type.upper(),
+        title=default_title,       # Fix 2: matches sync route; prevents empty dashboard rows
+        scheduled_date=date_obj,   # Fix 1: bare date; SQLAlchemy coerces to DateTime(tz=True) at insert
+        scheduled_time=scheduled_time,                         # String "HH:MM"
+        duration_minutes=60,
+        notes=notes,
+        status="SCHEDULED",
+    )
+    db.add(meeting)
+    await db.commit()
+    await db.refresh(meeting)
+    return meeting
 
 
 @router.post("/calendar/book", response_model=MeetingResponse)

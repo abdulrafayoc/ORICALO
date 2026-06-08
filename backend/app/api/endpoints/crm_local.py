@@ -80,6 +80,40 @@ async def complete_action_item(item_id: int, db: AsyncSession = Depends(get_db),
     await db.commit()
     return {"status": "success", "message": "Action item completed"}
 
+async def update_lead_for_org(
+    *,
+    lead_id: int,
+    payload: dict,
+    organization_id: int,
+    db: AsyncSession,
+):
+    """Update a lead's qualification fields, scoped to one org.
+
+    Raises LookupError if the lead is not found in this org. The caller
+    decides how to surface that (HTTPException at the route, ToolResult error
+    at the voice loop). No auth dependency — the caller proves org membership.
+    """
+    result = await db.execute(
+        select(Lead)
+        .filter(Lead.id == lead_id)
+        .filter(Lead.organization_id == organization_id)
+    )
+    lead = result.scalars().first()
+    if not lead:
+        raise LookupError(f"Lead {lead_id} not found in org {organization_id}")
+
+    # Only apply keys the model actually has, ignore unknowns silently.
+    allowed = {"name", "phone_number", "email", "status",
+               "budget", "location_pref", "timeline", "needs_human", "lead_score"}
+    for key, value in payload.items():
+        if key in allowed and value is not None:
+            setattr(lead, key, value)
+
+    await db.commit()
+    await db.refresh(lead)
+    return lead
+
+
 class LeadBase(BaseModel):
     name: str
     phone_number: Optional[str] = None
@@ -117,24 +151,19 @@ async def create_lead(payload: LeadCreate, db: AsyncSession = Depends(get_db), c
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/leads/{lead_id}")
-async def update_lead(lead_id: int, payload: LeadUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def update_lead(lead_id: int, payload: LeadUpdate,
+                      db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(get_current_user)):
     """Update an existing lead's properties, within org bounds."""
-    result = await db.execute(
-        select(Lead)
-        .filter(Lead.id == lead_id)
-        .filter(Lead.organization_id == current_user.organization_id)
-    )
-    lead = result.scalars().first()
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found or access denied")
-        
-    for key, value in payload.model_dump().items():
-        setattr(lead, key, value)
-        
     try:
-        await db.commit()
-        await db.refresh(lead)
-        return lead
+        return await update_lead_for_org(
+            lead_id=lead_id,
+            payload=payload.model_dump(exclude_unset=True),
+            organization_id=current_user.organization_id,
+            db=db,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Lead not found or access denied")
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
