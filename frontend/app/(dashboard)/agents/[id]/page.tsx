@@ -5,142 +5,187 @@ import { useRouter } from "next/navigation";
 import { Save, ChevronLeft } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import type { Agent } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Card, CardBody } from "@/components/ui/card";
+import { Input, Textarea } from "@/components/ui/input";
 
 const DEFAULT_AGENT: Agent = {
-    id: 0,
-    name: "",
-    slug: "",
-    description: "",
-    system_prompt: "",
-    is_active: true
+  id: 0,
+  name: "",
+  slug: "",
+  description: "",
+  system_prompt: "",
+  is_active: true,
 };
 
-export default function AgentEditorPage({ params }: { params: Promise<{ id: string }> }) {
-    const router = useRouter();
-    const resolvedParams = use(params);
-    const isNew = resolvedParams.id === "new";
-    const [agent, setAgent] = useState<Agent>(DEFAULT_AGENT);
-    const [saving, setSaving] = useState(false);
+const FIELD_LABEL =
+  "block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2";
 
-    useEffect(() => {
-        if (!isNew) {
-            apiFetch(`/agents/${resolvedParams.id}`)
-                .then(res => res.json())
-                .then(setAgent)
-                .catch(err => console.error(err));
-        }
-    }, [isNew, resolvedParams.id]);
+export default function AgentEditorPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const router = useRouter();
+  const resolvedParams = use(params);
+  const isNew = resolvedParams.id === "new";
+  const [agent, setAgent] = useState<Agent>(DEFAULT_AGENT);
+  const [saving, setSaving] = useState(false);
 
-    const handleSave = async () => {
-        setSaving(true);
-        const path = isNew ? "/agents/" : `/agents/${agent.id}`;
-        const method = isNew ? "POST" : "PUT";
+  useEffect(() => {
+    if (!isNew) {
+      apiFetch(`/agents/${resolvedParams.id}`)
+        .then((res) => res.json())
+        .then(setAgent)
+        .catch((err) => console.error(err));
+    }
+  }, [isNew, resolvedParams.id]);
 
-        try {
-            await apiFetch(path, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(agent)
-            });
-            router.push("/agents");
-        } catch (e) {
-            alert("Error saving agent");
-        } finally {
-            setSaving(false);
-        }
-    };
+  const handleSave = async () => {
+    setSaving(true);
+    const path = isNew ? "/agents/" : `/agents/${agent.id}`;
+    const method = isNew ? "POST" : "PUT";
 
-    return (
-        <div className="flex flex-col h-[calc(100vh-100px)]">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6 pb-6 border-b border-neutral-800">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => router.back()} className="text-neutral-400 hover:text-white transition-colors">
-                        <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div>
-                        <h1 className="text-xl font-semibold text-white">{isNew ? "New Agent" : agent.name}</h1>
-                        <div className="text-xs text-neutral-500 font-mono mt-1">{isNew ? "Draft" : agent.slug}</div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="bg-white text-black px-4 py-2 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors flex items-center gap-2"
-                    >
-                        {saving ? "Saving..." : <><Save className="w-4 h-4" /> Save Configuration</>}
-                    </button>
-                </div>
+    try {
+      await apiFetch(path, {
+        method,
+        body: JSON.stringify(agent),
+      });
+      router.push("/agents");
+    } catch {
+      alert("Error saving agent");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-9rem)]">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 pb-5 border-b border-border">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.back()}
+            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-sm hover:bg-muted"
+            aria-label="Back"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="font-serif text-2xl text-foreground">
+              {isNew ? "New agent" : agent.name || "Untitled agent"}
+            </h1>
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground mt-1">
+              {isNew ? "Draft · unsaved" : agent.slug || "—"}
             </div>
-
-            {/* Split View */}
-            <div className="flex-1 grid grid-cols-12 gap-8 min-h-0">
-
-                {/* Left Panel: Settings */}
-                <div className="col-span-12 lg:col-span-4 space-y-6 overflow-y-auto pr-2">
-                    <div className="space-y-4">
-                        <label className="block text-sm font-medium text-neutral-400">General Information</label>
-
-                        <div className="space-y-1">
-                            <span className="text-xs text-neutral-500">Display Name</span>
-                            <input
-                                className="w-full bg-neutral-900 border border-neutral-800 rounded-md p-2 text-sm text-white focus:outline-none focus:border-neutral-600"
-                                placeholder="Agent Name"
-                                value={agent.name}
-                                onChange={e => setAgent({ ...agent, name: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <span className="text-xs text-neutral-500">Slug (ID)</span>
-                            <input
-                                className="w-full bg-neutral-900 border border-neutral-800 rounded-md p-2 text-sm text-white font-mono focus:outline-none focus:border-neutral-600"
-                                placeholder="unique-id"
-                                value={agent.slug}
-                                onChange={e => setAgent({ ...agent, slug: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-1">
-                            <span className="text-xs text-neutral-500">Description</span>
-                            <textarea
-                                className="w-full bg-neutral-900 border border-neutral-800 rounded-md p-2 text-sm text-white focus:outline-none focus:border-neutral-600 h-24 resize-none"
-                                placeholder="Briefly describe what this agent does..."
-                                value={agent.description || ""}
-                                onChange={e => setAgent({ ...agent, description: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-2">
-                            <input
-                                type="checkbox"
-                                id="active"
-                                checked={agent.is_active}
-                                onChange={e => setAgent({ ...agent, is_active: e.target.checked })}
-                                className="rounded bg-neutral-900 border-neutral-800 text-emerald-500 focus:ring-0 focus:ring-offset-0"
-                            />
-                            <label htmlFor="active" className="text-sm text-neutral-300">Active / Deployable</label>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Panel: Prompt Editor */}
-                <div className="col-span-12 lg:col-span-8 flex flex-col h-full bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-                    <div className="bg-neutral-950 border-b border-neutral-800 px-4 py-2 flex items-center justify-between">
-                        <span className="text-xs font-mono text-neutral-500">system_instruction.md</span>
-                        <span className="text-[10px] uppercase text-neutral-600 font-semibold tracking-wider">Editor</span>
-                    </div>
-                    <textarea
-                        className="flex-1 w-full bg-neutral-900 p-4 font-mono text-sm text-neutral-200 focus:outline-none resize-none leading-relaxed"
-                        placeholder="Define the agent's persona and constraints here..."
-                        value={agent.system_prompt}
-                        onChange={e => setAgent({ ...agent, system_prompt: e.target.value })}
-                        spellCheck={false}
-                    />
-                </div>
-
-            </div>
+          </div>
         </div>
-    );
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? (
+            "Saving…"
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Save configuration
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Split view */}
+      <div className="flex-1 grid grid-cols-12 gap-6 min-h-0">
+        {/* Left: settings */}
+        <div className="col-span-12 lg:col-span-4 space-y-5 overflow-y-auto pr-1">
+          <Card>
+            <CardBody className="p-5 space-y-5">
+              <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                General information
+              </div>
+
+              <div>
+                <label htmlFor="name" className={FIELD_LABEL}>
+                  Display name
+                </label>
+                <Input
+                  id="name"
+                  placeholder="Agent name"
+                  value={agent.name}
+                  onChange={(e) => setAgent({ ...agent, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="slug" className={FIELD_LABEL}>
+                  Slug (ID)
+                </label>
+                <Input
+                  id="slug"
+                  placeholder="unique-id"
+                  value={agent.slug}
+                  onChange={(e) => setAgent({ ...agent, slug: e.target.value })}
+                  mono
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className={FIELD_LABEL}>
+                  Description
+                </label>
+                <Textarea
+                  id="description"
+                  placeholder="Briefly describe what this agent does…"
+                  value={agent.description || ""}
+                  onChange={(e) =>
+                    setAgent({ ...agent, description: e.target.value })
+                  }
+                  className="min-h-[100px]"
+                />
+              </div>
+
+              <label className="flex items-start gap-3 p-3 border border-border bg-muted/40 rounded-md cursor-pointer hover:bg-muted transition-colors">
+                <input
+                  type="checkbox"
+                  id="active"
+                  checked={agent.is_active}
+                  onChange={(e) =>
+                    setAgent({ ...agent, is_active: e.target.checked })
+                  }
+                  className="mt-0.5 w-4 h-4 rounded-sm border-border bg-input text-accent focus:ring-1 focus:ring-ring"
+                />
+                <div>
+                  <div className="text-sm text-foreground">
+                    Active / deployable
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground mt-1">
+                    Toggle to enable this persona for incoming calls
+                  </div>
+                </div>
+              </label>
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* Right: prompt editor */}
+        <div className="col-span-12 lg:col-span-8 flex flex-col h-full bg-card border border-border rounded-md overflow-hidden">
+          <div className="bg-popover border-b border-border px-4 py-2.5 flex items-center justify-between">
+            <span className="font-mono text-[11px] text-muted-foreground">
+              system_instruction.md
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+              Editor
+            </span>
+          </div>
+          <textarea
+            className="flex-1 w-full bg-card p-5 font-mono text-sm text-foreground focus:outline-none resize-none leading-relaxed placeholder:text-muted-foreground"
+            placeholder="Define the agent's persona and constraints here…"
+            value={agent.system_prompt}
+            onChange={(e) =>
+              setAgent({ ...agent, system_prompt: e.target.value })
+            }
+            spellCheck={false}
+          />
+        </div>
+      </div>
+    </div>
+  );
 }

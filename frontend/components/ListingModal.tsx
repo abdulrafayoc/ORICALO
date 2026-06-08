@@ -2,161 +2,258 @@
 
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input, Textarea } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-interface ListingModalProps {
-    listing?: any;
-    onClose: () => void;
-    onSave: () => void;
+interface Listing {
+  id?: number;
+  title?: string;
+  price?: string;
+  location?: string;
+  city?: string;
+  type?: string;
+  bedrooms?: number | string;
+  baths?: number | string;
+  area?: string;
+  features?: string[] | string;
+  description?: string;
 }
 
-/**
- * Modal form for creating or editing a property listing.
- * Separated from rag/page.tsx for single-responsibility.
- */
+interface ListingModalProps {
+  listing?: Listing | null;
+  onClose: () => void;
+  onSave: () => void;
+}
+
+const FIELD_LABEL =
+  "block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2";
+
+const INPUT_SELECT_CLASS =
+  "h-9 w-full bg-input border border-border rounded-md px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
 export function ListingModal({ listing, onClose, onSave }: ListingModalProps) {
-    const isEdit = !!listing;
-    const [formData, setFormData] = useState({
-        title: listing?.title || "",
-        price: listing?.price || "",
-        location: listing?.location || "",
-        city: listing?.city || "Lahore",
-        type: listing?.type || "House",
-        bedrooms: listing?.bedrooms || "",
-        baths: listing?.baths || "",
-        area: listing?.area || "",
-        features: listing?.features ? (Array.isArray(listing.features) ? listing.features.join(", ") : listing.features) : "",
-        description: listing?.description || ""
-    });
-    const [saving, setSaving] = useState(false);
+  const isEdit = !!listing;
+  const [formData, setFormData] = useState({
+    title: listing?.title || "",
+    price: listing?.price || "",
+    location: listing?.location || "",
+    city: listing?.city || "Lahore",
+    type: listing?.type || "House",
+    bedrooms: listing?.bedrooms?.toString() || "",
+    baths: listing?.baths?.toString() || "",
+    area: listing?.area || "",
+    features: listing?.features
+      ? Array.isArray(listing.features)
+        ? listing.features.join(", ")
+        : listing.features
+      : "",
+    description: listing?.description || "",
+  });
+  const [saving, setSaving] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSaving(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
 
-        const processedData = {
-            ...formData,
-            bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
-            baths: formData.baths ? parseInt(formData.baths) : null,
-            features: formData.features.split(",").map((s: string) => s.trim()).filter((s: string) => s)
-        };
-
-        const path = isEdit
-            ? `/agency/listings/${listing.id}`
-            : "/agency/listings";
-
-        const method = isEdit ? "PUT" : "POST";
-
-        try {
-            const res = await apiFetch(path, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(processedData)
-            });
-            if (res.ok) {
-                onSave();
-            } else {
-                alert("Failed to save listing");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Error saving listing");
-        } finally {
-            setSaving(false);
-        }
+    const processedData = {
+      ...formData,
+      bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+      baths: formData.baths ? parseInt(formData.baths) : null,
+      features: formData.features
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s),
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                <div className="flex justify-between items-center p-6 border-b border-neutral-800">
-                    <h3 className="text-xl font-bold text-white">{isEdit ? "Edit Listing" : "New Listing"}</h3>
-                    <button onClick={onClose} className="text-neutral-500 hover:text-white">✕</button>
-                </div>
+    const path = isEdit
+      ? `/agency/listings/${listing!.id}`
+      : "/agency/listings";
+    const method = isEdit ? "PUT" : "POST";
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">Title</label>
-                            <input className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required
-                            />
-                        </div>
+    try {
+      const res = await apiFetch(path, {
+        method,
+        body: JSON.stringify(processedData),
+      });
+      if (res.ok) {
+        onSave();
+      } else {
+        alert("Failed to save listing");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving listing");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-                        <div>
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">Price</label>
-                            <input className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} placeholder="e.g. 2.5 Crore"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">Location</label>
-                            <input className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })}
-                            />
-                        </div>
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit listing" : "New listing"}</DialogTitle>
+          <DialogDescription>
+            Property data feeds the RAG knowledge base used by the voice agent.
+          </DialogDescription>
+        </DialogHeader>
 
-                        <div>
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">City</label>
-                            <input className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">Type</label>
-                            <select className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}
-                            >
-                                <option value="House">House</option>
-                                <option value="Flat">Flat</option>
-                                <option value="Plot">Plot</option>
-                                <option value="Commercial">Commercial</option>
-                            </select>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2 col-span-2">
-                            <div>
-                                <label className="block text-xs uppercase text-neutral-500 mb-1">Beds</label>
-                                <input type="number" className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                    value={formData.bedrooms} onChange={e => setFormData({ ...formData, bedrooms: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs uppercase text-neutral-500 mb-1">Baths</label>
-                                <input type="number" className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                    value={formData.baths} onChange={e => setFormData({ ...formData, baths: e.target.value })}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs uppercase text-neutral-500 mb-1">Area</label>
-                                <input className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                    value={formData.area} onChange={e => setFormData({ ...formData, area: e.target.value })} placeholder="e.g. 10 Marla"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="col-span-2">
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">Features (comma separated)</label>
-                            <input className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none"
-                                value={formData.features} onChange={e => setFormData({ ...formData, features: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="col-span-2">
-                            <label className="block text-xs uppercase text-neutral-500 mb-1">Description</label>
-                            <textarea className="w-full bg-black border border-neutral-800 rounded p-2 text-white focus:border-blue-500 outline-none h-24"
-                                value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-neutral-400 hover:text-white transition-colors">Cancel</button>
-                        <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium transition-colors disabled:opacity-50">
-                            {saving ? "Saving..." : "Save Listing"}
-                        </button>
-                    </div>
-                </form>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label htmlFor="title" className={FIELD_LABEL}>
+                Title
+              </label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+              />
             </div>
-        </div>
-    );
+
+            <div>
+              <label htmlFor="price" className={FIELD_LABEL}>
+                Price
+              </label>
+              <Input
+                id="price"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="e.g. 2.5 Crore"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="location" className={FIELD_LABEL}>
+                Location
+              </label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+                placeholder="DHA Phase 5"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="city" className={FIELD_LABEL}>
+                City
+              </label>
+              <Input
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="type" className={FIELD_LABEL}>
+                Type
+              </label>
+              <select
+                id="type"
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                className={INPUT_SELECT_CLASS}
+              >
+                <option value="House">House</option>
+                <option value="Flat">Flat</option>
+                <option value="Plot">Plot</option>
+                <option value="Commercial">Commercial</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2 grid grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="bedrooms" className={FIELD_LABEL}>
+                  Beds
+                </label>
+                <Input
+                  id="bedrooms"
+                  type="number"
+                  value={formData.bedrooms}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bedrooms: e.target.value })
+                  }
+                  mono
+                />
+              </div>
+              <div>
+                <label htmlFor="baths" className={FIELD_LABEL}>
+                  Baths
+                </label>
+                <Input
+                  id="baths"
+                  type="number"
+                  value={formData.baths}
+                  onChange={(e) =>
+                    setFormData({ ...formData, baths: e.target.value })
+                  }
+                  mono
+                />
+              </div>
+              <div>
+                <label htmlFor="area" className={FIELD_LABEL}>
+                  Area
+                </label>
+                <Input
+                  id="area"
+                  value={formData.area}
+                  onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                  placeholder="10 marla"
+                />
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label htmlFor="features" className={FIELD_LABEL}>
+                Features (comma-separated)
+              </label>
+              <Input
+                id="features"
+                value={formData.features}
+                onChange={(e) =>
+                  setFormData({ ...formData, features: e.target.value })
+                }
+                placeholder="garage, garden, separate entrance"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label htmlFor="description" className={FIELD_LABEL}>
+                Description
+              </label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save listing"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }

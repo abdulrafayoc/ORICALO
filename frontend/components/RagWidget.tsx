@@ -1,99 +1,127 @@
-import React from 'react';
-import { Building, MapPin, ArrowRight, BedDouble, Bath, Ruler } from 'lucide-react';
-import type { Property } from '@/lib/types';
+import React from "react";
+import { Building, MapPin, ArrowRight, BedDouble, Bath, Ruler } from "lucide-react";
+import { motion } from "framer-motion";
+import type { Property } from "@/lib/types";
+import { Card, CardBody } from "./ui/card";
+import { fadeUp } from "@/lib/motion";
 
 interface RagWidgetProps {
-    listings: Property[];
+  listings: Property[];
 }
 
-/** Normalizes features from either a string[] or comma-separated string. */
 function parseFeatures(features: string[] | string | undefined): string[] {
-    if (!features) return [];
-    if (Array.isArray(features)) return features;
-    return typeof features === 'string' ? features.split(',').map(s => s.trim()) : [];
+  if (!features) return [];
+  if (Array.isArray(features)) return features;
+  return typeof features === "string"
+    ? features.split(",").map((s) => s.trim())
+    : [];
 }
 
 export default function RagWidget({ listings }: RagWidgetProps) {
-    return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-blue-400 font-semibold uppercase tracking-wider text-sm flex items-center gap-2">
-                    <Building className="w-4 h-4" />
-                    Property Matches
-                </h3>
-                <span className="text-xs text-neutral-500">{listings.length} results found</span>
-            </div>
+  return (
+    <motion.div variants={fadeUp} initial="hidden" animate="visible">
+      <Card>
+        <CardBody className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-mono text-[10px] uppercase tracking-[0.15em] text-accent flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5" />
+              Property matches
+            </h3>
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              {listings.length} results
+            </span>
+          </div>
 
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
-                {listings.map((item) => (
-                    <div
-                        key={item.id}
-                        className="min-w-[280px] w-[280px] bg-black border border-neutral-800 rounded-lg overflow-hidden group hover:border-neutral-700 transition-colors flex flex-col"
-                    >
-                        <div className="h-32 bg-neutral-800 relative overflow-hidden shrink-0">
-                            {item.image ? (
-                                <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                            ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-neutral-700 bg-neutral-900">
-                                    <Building className="w-8 h-8 mb-1" />
-                                    {item.type && <span className="text-xs uppercase tracking-widest">{item.type}</span>}
-                                </div>
-                            )}
-                            <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded backdrop-blur-sm font-medium">
-                                {item.price}
-                            </div>
-                        </div>
-
-                        <div className="p-4 flex flex-col flex-1">
-                            <h4 className="text-sm font-medium text-neutral-200 line-clamp-1 mb-1" title={item.title}>
-                                {item.title}
-                            </h4>
-                            <div className="flex items-center gap-1 text-xs text-neutral-500 mb-3">
-                                <MapPin className="w-3 h-3" />
-                                <span className="line-clamp-1">{item.location}</span>
-                            </div>
-
-                            {/* Stats Row */}
-                            <div className="flex items-center gap-3 mb-3 text-xs text-neutral-400">
-                                {item.bedrooms != null && (
-                                    <span className="flex items-center gap-1"><BedDouble className="w-3 h-3" /> {item.bedrooms}</span>
-                                )}
-                                {item.baths != null && (
-                                    <span className="flex items-center gap-1"><Bath className="w-3 h-3" /> {item.baths}</span>
-                                )}
-                                {item.area && (
-                                    <span className="flex items-center gap-1"><Ruler className="w-3 h-3" /> {item.area}</span>
-                                )}
-                            </div>
-
-                            {/* Features */}
-                            {item.features && (() => {
-                                const feats = parseFeatures(item.features);
-                                return (
-                                    <div className="flex flex-wrap gap-1 mb-4">
-                                        {feats.slice(0, 2).map((feat, i) => (
-                                            <span key={i} className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded border border-neutral-700">
-                                                {feat}
-                                            </span>
-                                        ))}
-                                        {feats.length > 2 && (
-                                            <span className="text-[10px] text-neutral-600">
-                                                +{feats.length - 2} more
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-
-                            <div className="mt-auto">
-                                <button className="w-full py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded text-xs text-neutral-400 hover:text-white transition-colors flex items-center justify-center gap-1">
-                                    View Details <ArrowRight className="w-3 h-3" />
-                                </button>
-                            </div>
-                        </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2">
+            {listings.map((item) => {
+              const feats = parseFeatures(item.features);
+              return (
+                <div
+                  key={item.id}
+                  className="min-w-[260px] w-[260px] bg-popover border border-border rounded-md overflow-hidden hover:border-accent/40 transition-colors flex flex-col"
+                >
+                  <div className="h-28 bg-muted relative overflow-hidden shrink-0">
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted">
+                        <Building className="w-6 h-6 mb-1 opacity-50" />
+                        {item.type && (
+                          <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
+                            {item.type}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2 bg-background/85 text-foreground font-serif text-sm px-2 py-0.5 rounded-sm border border-border">
+                      {item.price}
                     </div>
-                ))}
-            </div>
-        </div>
-    );
+                  </div>
+
+                  <div className="p-3.5 flex flex-col flex-1">
+                    <h4
+                      className="text-sm text-foreground line-clamp-1 mb-1.5"
+                      title={item.title}
+                    >
+                      {item.title}
+                    </h4>
+                    <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground mb-3">
+                      <MapPin className="w-3 h-3" />
+                      <span className="line-clamp-1">{item.location}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-3 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                      {item.bedrooms != null && (
+                        <span className="flex items-center gap-1">
+                          <BedDouble className="w-3 h-3" /> {item.bedrooms}
+                        </span>
+                      )}
+                      {item.baths != null && (
+                        <span className="flex items-center gap-1">
+                          <Bath className="w-3 h-3" /> {item.baths}
+                        </span>
+                      )}
+                      {item.area && (
+                        <span className="flex items-center gap-1">
+                          <Ruler className="w-3 h-3" /> {item.area}
+                        </span>
+                      )}
+                    </div>
+
+                    {feats.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {feats.slice(0, 2).map((feat, i) => (
+                          <span
+                            key={i}
+                            className="font-mono text-[9px] uppercase tracking-[0.08em] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-sm border border-border"
+                          >
+                            {feat}
+                          </span>
+                        ))}
+                        {feats.length > 2 && (
+                          <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
+                            +{feats.length - 2} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-auto">
+                      <button className="w-full py-1.5 bg-transparent border border-border rounded-sm font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-accent hover:border-accent/40 transition-colors flex items-center justify-center gap-1">
+                        View details <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardBody>
+      </Card>
+    </motion.div>
+  );
 }

@@ -5,7 +5,7 @@ import type { Property } from "@/lib/types";
 
 const mockListings: Property[] = [
     {
-        id: 1,
+        id: "1",
         title: "Test House",
         location: "DHA Phase 6",
         price: "2.5 Crore",
@@ -16,7 +16,7 @@ const mockListings: Property[] = [
         type: "House"
     },
     {
-        id: 2,
+        id: "2",
         title: "Test Apartment",
         location: "Bahria Town",
         price: "1.2 Crore",
@@ -31,12 +31,14 @@ const mockListings: Property[] = [
 describe("RagWidget", () => {
     it("renders the property matches heading", () => {
         render(<RagWidget listings={mockListings} />);
-        expect(screen.getByText("Property Matches")).toBeInTheDocument();
+        // P4: heading copy is now sentence case "Property matches"
+        expect(screen.getByText("Property matches")).toBeInTheDocument();
     });
 
     it("renders the correct number of results", () => {
         render(<RagWidget listings={mockListings} />);
-        expect(screen.getByText("2 results found")).toBeInTheDocument();
+        // P4: results meta shortened from "N results found" to "N results"
+        expect(screen.getByText("2 results")).toBeInTheDocument();
     });
 
     it("renders property details correctly", () => {
