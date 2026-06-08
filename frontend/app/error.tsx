@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardError({
   error,
@@ -15,31 +16,30 @@ export default function DashboardError({
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-950">
-      <div className="text-center space-y-5 max-w-md px-4">
-        <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto">
-          <AlertCircle className="w-8 h-8 text-red-400" />
+    <div className="min-h-screen flex items-center justify-center bg-background paper-noise px-4">
+      <div className="text-center space-y-5 max-w-md">
+        <div className="w-14 h-14 rounded-sm border border-destructive/30 bg-destructive/10 flex items-center justify-center mx-auto">
+          <AlertCircle className="w-7 h-7 text-destructive" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-white mb-2">Dashboard Error</h2>
-          <p className="text-neutral-400 text-sm">
+          <h2 className="font-serif italic text-2xl text-foreground mb-2">
+            Something broke
+          </h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
             {process.env.NODE_ENV === "development"
               ? error.message
-              : "Something went wrong loading this page."}
+              : "An unexpected error occurred loading this page."}
           </p>
           {error.digest && (
-            <p className="text-neutral-600 text-xs mt-2 font-mono">
-              Error ID: {error.digest}
+            <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground mt-3">
+              Error ID · {error.digest}
             </p>
           )}
         </div>
-        <button
-          onClick={reset}
-          className="inline-flex items-center gap-2 px-5 py-2 bg-white text-black rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors"
-        >
+        <Button onClick={reset}>
           <RefreshCw className="w-4 h-4" />
-          Try Again
-        </button>
+          Try again
+        </Button>
       </div>
     </div>
   );
