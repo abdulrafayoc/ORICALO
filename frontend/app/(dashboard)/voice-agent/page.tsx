@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence, useMotionValue, animate, useReducedMotion } from "framer-motion";
 import { Mic, Square, RefreshCw, Shield, Globe, Cpu } from "lucide-react";
 import { WS_BASE } from "@/lib/api";
 import { useVoicePresence, type VoiceStatus } from "@/context/voice-presence";
@@ -89,82 +90,239 @@ class StreamingAudioPlayer {
   finalize() {}
 }
 
-/* ─── Radial Audio Visualizer (themed canvas) ─────────────────── */
+/* ─── Voice Orb Visualizer (SVG + Framer Motion) ──────────────── */
 
-function RadialAudioVisualizer({
+/**
+ * A clean, modern voice presence visualizer.
+ * - Central radial-gradient orb that breathes (listening) or scales with amplitude (speaking)
+ * - 3 concentric outlined rings, opacity follows amplitude
+ * - Speaking state spawns expanding ripples every ~650ms via AnimatePresence
+ * - Thinking state rotates the outer ring's stroke dasharray
+ * - Reduced-motion: static orb + opacity-only feedback
+ */
+function VoiceOrb({
   analyser,
   state,
   size = 320,
-  barCount = 48,
 }: {
   analyser: AnalyserNode | null;
   state: VoiceAgentState;
   size?: number;
-  barCount?: number;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number | undefined>(undefined);
+  const reduceMotion = useReducedMotion();
+  const amplitude = useMotionValue(0);
+  const orbScale = useMotionValue(1);
+  const innerRingOpacity = useMotionValue(0.25);
+  const middleRingOpacity = useMotionValue(0.15);
+  const outerRingOpacity = useMotionValue(0.08);
+  const rafRef = useRef<number | undefined>(undefined);
+  const [ripples, setRipples] = useState<number[]>([]);
 
+  // Read analyser → smooth amplitude (low-pass via lerp)
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!analyser || reduceMotion) {
+      amplitude.set(0);
+      return;
+    }
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let smoothed = 0;
 
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    ctx.scale(dpr, dpr);
-
-    const dataArray = analyser
-      ? new Uint8Array(analyser.frequencyBinCount)
-      : new Uint8Array(0);
-    const radius = size / 2 - 28;
-    const color = state === "speaking" ? PALE_HEX : ACCENT_HEX;
-
-    const draw = () => {
-      animationRef.current = requestAnimationFrame(draw);
-      if (analyser) analyser.getByteFrequencyData(dataArray);
-
-      ctx.clearRect(0, 0, size, size);
-      ctx.save();
-      ctx.translate(size / 2, size / 2);
-
-      for (let i = 0; i < barCount; i++) {
-        const angle = (i / barCount) * Math.PI * 2;
-        const dataIndex = Math.floor((i / barCount) * (dataArray.length / 2));
-        const value = dataArray[dataIndex] ?? 0;
-        const barHeight =
-          state === "speaking" || state === "listening"
-            ? (value / 255) * radius * 0.7
-            : state === "processing"
-              ? Math.sin(Date.now() / 200 + i * 0.5) * 8 + 12
-              : 4;
-
-        ctx.save();
-        ctx.rotate(angle);
-        ctx.fillStyle = color;
-        ctx.globalAlpha = state === "idle" ? 0.25 : 0.85;
-        const barWidth = ((Math.PI * 2 * radius) / barCount) * 0.55;
-        ctx.fillRect(-barWidth / 2, radius, barWidth, Math.max(barHeight, 2));
-        ctx.restore();
-      }
-
-      ctx.restore();
+    const loop = () => {
+      rafRef.current = requestAnimationFrame(loop);
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      const slice = Math.min(64, data.length);
+      for (let i = 0; i < slice; i++) sum += (data[i]! / 255) ** 2;
+      const rms = Math.sqrt(sum / slice);
+      // Low-pass smoothing
+      smoothed = smoothed * 0.82 + rms * 0.18;
+      amplitude.set(smoothed);
     };
-
-    draw();
+    rafRef.current = requestAnimationFrame(loop);
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [analyser, state, size, barCount]);
+  }, [analyser, amplitude, reduceMotion]);
+
+  // Drive scale + ring opacities from amplitude + state
+  useEffect(() => {
+    const unsubscribe = amplitude.on("change", (v) => {
+      const target =
+        state === "speaking"
+          ? 1 + v * 0.18
+          : state === "listening"
+            ? 1 + v * 0.06
+            : 1;
+      orbScale.set(target);
+
+      innerRingOpacity.set(
+        state === "idle" || state === "error" ? 0.12 : 0.3 + v * 0.5,
+      );
+      middleRingOpacity.set(
+        state === "idle" || state === "error" ? 0.08 : 0.18 + v * 0.35,
+      );
+      outerRingOpacity.set(
+        state === "idle" || state === "error" ? 0.05 : 0.1 + v * 0.2,
+      );
+    });
+    return unsubscribe;
+  }, [amplitude, state, orbScale, innerRingOpacity, middleRingOpacity, outerRingOpacity]);
+
+  // Breathing loop for listening state (organic idle motion)
+  useEffect(() => {
+    if (state !== "listening" || reduceMotion) return;
+    const breathe = animate(orbScale, [1, 1.04, 1], {
+      duration: 3.2,
+      ease: "easeInOut",
+      repeat: Infinity,
+    });
+    return () => breathe.stop();
+  }, [state, reduceMotion, orbScale]);
+
+  // Spawn ripples while speaking
+  useEffect(() => {
+    if (state !== "speaking" || reduceMotion) {
+      setRipples([]);
+      return;
+    }
+    const interval = setInterval(() => {
+      setRipples((prev) => [...prev, Date.now()].slice(-4));
+    }, 650);
+    return () => clearInterval(interval);
+  }, [state, reduceMotion]);
+
+  const center = size / 2;
+  const orbRadius = size * 0.18;
+  const ringRadii = [size * 0.27, size * 0.36, size * 0.45];
+  const isActive = state !== "idle" && state !== "error";
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       style={{ width: size, height: size }}
-      className="block"
-    />
+      className="relative flex items-center justify-center"
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="absolute inset-0"
+      >
+        <defs>
+          {/* Central orb gradient — mint glow */}
+          <radialGradient id="orb-gradient" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={ACCENT_HEX} stopOpacity="0.7" />
+            <stop offset="40%" stopColor={ACCENT_HEX} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={ACCENT_HEX} stopOpacity="0" />
+          </radialGradient>
+          {/* Sage gradient for speaking state */}
+          <radialGradient id="orb-gradient-speaking" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={PALE_HEX} stopOpacity="0.8" />
+            <stop offset="40%" stopColor={PALE_HEX} stopOpacity="0.4" />
+            <stop offset="100%" stopColor={ACCENT_HEX} stopOpacity="0" />
+          </radialGradient>
+          {/* Ring gradient for thinking dasharray */}
+          <linearGradient id="thinking-gradient" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor={ACCENT_HEX} stopOpacity="0" />
+            <stop offset="50%" stopColor={ACCENT_HEX} stopOpacity="0.8" />
+            <stop offset="100%" stopColor={ACCENT_HEX} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Outer ambient ring */}
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={ringRadii[2]}
+          fill="none"
+          stroke={ACCENT_HEX}
+          strokeWidth={1}
+          style={{ opacity: outerRingOpacity }}
+        />
+
+        {/* Middle ring */}
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={ringRadii[1]}
+          fill="none"
+          stroke={ACCENT_HEX}
+          strokeWidth={1}
+          style={{ opacity: middleRingOpacity }}
+        />
+
+        {/* Inner ring — rotates dasharray when thinking */}
+        {state === "processing" && !reduceMotion ? (
+          <motion.circle
+            cx={center}
+            cy={center}
+            r={ringRadii[0]}
+            fill="none"
+            stroke={ACCENT_HEX}
+            strokeWidth={1.5}
+            strokeDasharray={`${ringRadii[0]! * 0.8} ${ringRadii[0]! * 5.5}`}
+            style={{ opacity: 0.6, transformOrigin: "center", transformBox: "fill-box" }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 5, ease: "linear", repeat: Infinity }}
+          />
+        ) : (
+          <motion.circle
+            cx={center}
+            cy={center}
+            r={ringRadii[0]}
+            fill="none"
+            stroke={ACCENT_HEX}
+            strokeWidth={1.5}
+            style={{ opacity: innerRingOpacity }}
+          />
+        )}
+
+        {/* Ripples — expand outward when speaking */}
+        <AnimatePresence>
+          {ripples.map((id) => (
+            <motion.circle
+              key={id}
+              cx={center}
+              cy={center}
+              fill="none"
+              stroke={PALE_HEX}
+              strokeWidth={1}
+              initial={{ r: orbRadius, opacity: 0.5 }}
+              animate={{ r: ringRadii[2]! + 8, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] }}
+              onAnimationComplete={() =>
+                setRipples((prev) => prev.filter((r) => r !== id))
+              }
+            />
+          ))}
+        </AnimatePresence>
+
+        {/* Central orb */}
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={orbRadius}
+          fill={
+            state === "speaking" ? "url(#orb-gradient-speaking)" : "url(#orb-gradient)"
+          }
+          style={{ scale: orbScale, transformOrigin: "center", transformBox: "fill-box" }}
+          animate={{
+            opacity: isActive ? 1 : 0.4,
+          }}
+          transition={{ duration: 0.4 }}
+        />
+
+        {/* Core dot — subtle anchor */}
+        <motion.circle
+          cx={center}
+          cy={center}
+          r={3}
+          fill={state === "speaking" ? PALE_HEX : ACCENT_HEX}
+          animate={{ opacity: isActive ? 0.9 : 0.4 }}
+          transition={{ duration: 0.4 }}
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -452,11 +610,10 @@ export default function VoiceAgentPage() {
                   "radial-gradient(circle at center, rgba(127,163,127,0.10), transparent 65%)",
               }}
             />
-            <RadialAudioVisualizer
+            <VoiceOrb
               analyser={currentAnalyser}
               state={agentState}
               size={320}
-              barCount={48}
             />
 
             <div className="flex items-center gap-2">
