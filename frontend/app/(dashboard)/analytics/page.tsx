@@ -1,168 +1,253 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart3, ShieldCheck, Users, Clock, AlertCircle, Terminal, Loader2 } from "lucide-react";
+import {
+  BarChart3,
+  ShieldCheck,
+  Users,
+  Clock,
+  AlertCircle,
+  Terminal,
+  Loader2,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { apiFetch } from "@/lib/api";
+import { Card, CardBody } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Ticker } from "@/components/Ticker";
+import { cn } from "@/lib/utils";
+import { fadeUp } from "@/lib/motion";
 
 interface KPIStats {
-    total_calls: number;
-    qualified_leads: number;
-    pii_redacted_pct: number;
-    avg_duration: string;
+  total_calls: number;
+  qualified_leads: number;
+  pii_redacted_pct: number;
+  avg_duration: string;
 }
 
 interface CallDetail {
-    id: string;
-    date: string;
-    status: string;
-    summary: string;
-    transcript: { role: string; text: string }[];
+  id: string;
+  date: string;
+  status: string;
+  summary: string;
+  transcript: { role: string; text: string }[];
 }
 
 export default function AnalyticsDashboard() {
-    const [kpis, setKpis] = useState<KPIStats | null>(null);
-    const [recentCalls, setRecentCalls] = useState<CallDetail[]>([]);
-    const [loading, setLoading] = useState(true);
+  const [kpis, setKpis] = useState<KPIStats | null>(null);
+  const [recentCalls, setRecentCalls] = useState<CallDetail[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [kpiRes, callsRes] = await Promise.all([
-                    apiFetch("/analytics/kpis"),
-                    apiFetch("/analytics/recent-calls?limit=5")
-                ]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [kpiRes, callsRes] = await Promise.all([
+          apiFetch("/analytics/kpis"),
+          apiFetch("/analytics/recent-calls?limit=5"),
+        ]);
+        if (kpiRes.ok) setKpis(await kpiRes.json());
+        if (callsRes.ok) setRecentCalls(await callsRes.json());
+      } catch (err) {
+        console.error("Failed to fetch analytics data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-                if (kpiRes.ok) setKpis(await kpiRes.json());
-                if (callsRes.ok) setRecentCalls(await callsRes.json());
-            } catch (err) {
-                console.error("Failed to fetch analytics data", err);
-            } finally {
-                setLoading(false);
-            }
-        };
+  const callToDisplay = recentCalls.length > 0 ? recentCalls[0]! : null;
 
-        fetchData();
-    }, []);
-
-    const callToDisplay = recentCalls.length > 0 ? recentCalls[0] : null;
-
-    if (loading) {
-        return (
-            <div className="h-full flex items-center justify-center p-8">
-                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-            </div>
-        );
-    }
-
+  if (loading) {
     return (
-        <div className="h-full flex flex-col gap-6">
-            <header className="flex items-center justify-between border-b border-slate-800 pb-6">
-                <div>
-                    <h1 className="text-2xl font-semibold text-white tracking-tight flex items-center gap-2">
-                        <BarChart3 className="w-6 h-6 text-indigo-400" />
-                        Post-Call Analytics
-                    </h1>
-                    <p className="text-sm text-slate-400 mt-1">
-                        Review call summaries, KPIs, and PII-redacted safe transcripts.
-                    </p>
-                </div>
-            </header>
-
-            {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
-                    <div className="flex items-center gap-2 text-slate-400 mb-2">
-                        <Users className="w-4 h-4" />
-                        <span className="text-xs font-semibold uppercase tracking-wider">Total Calls</span>
-                    </div>
-                    <div className="text-3xl font-light text-white">{kpis?.total_calls ?? 0}</div>
-                </div>
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
-                    <div className="flex items-center gap-2 text-slate-400 mb-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400/80">PII Redacted</span>
-                    </div>
-                    <div className="text-3xl font-light text-white">{kpis?.pii_redacted_pct ?? 100}%</div>
-                </div>
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
-                    <div className="flex items-center gap-2 text-slate-400 mb-2">
-                        <AlertCircle className="w-4 h-4 text-indigo-400" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400/80">Qualified Leads</span>
-                    </div>
-                    <div className="text-3xl font-light text-white">{kpis?.qualified_leads ?? 0}</div>
-                </div>
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-5">
-                    <div className="flex items-center gap-2 text-slate-400 mb-2">
-                        <Clock className="w-4 h-4" />
-                        <span className="text-xs font-semibold uppercase tracking-wider">Avg Duration</span>
-                    </div>
-                    <div className="text-3xl font-light text-white">{kpis?.avg_duration ?? "0s"}</div>
-                </div>
-            </div>
-
-            {/* Recent Call Detail */}
-            {callToDisplay ? (
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col md:flex-row">
-                    {/* Meta & Summary */}
-                    <div className="w-full md:w-1/3 bg-slate-900/50 p-6 border-r border-slate-800">
-                        <div className="flex justify-between items-start mb-6">
-                            <div>
-                                <div className="text-xs font-mono text-slate-500">{callToDisplay.id}</div>
-                                <div className="text-sm text-slate-400 mt-1">{callToDisplay.date}</div>
-                            </div>
-                            <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
-                                {callToDisplay.status}
-                            </span>
-                        </div>
-
-                        <h3 className="text-sm font-semibold text-white mb-2">AI Summary</h3>
-                        <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                            {callToDisplay.summary}
-                        </p>
-
-                        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-800 p-3 rounded-lg border border-slate-700">
-                            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                            PII Automatically Redacted (CNIC, Phone)
-                        </div>
-                    </div>
-
-                    {/* Transcript */}
-                    <div className="flex-1 p-6">
-                        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                            <Terminal className="w-4 h-4 text-slate-400" />
-                            Redacted Transcript
-                        </h3>
-
-                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-4">
-                            {(callToDisplay.transcript || []).map((turn, i) => (
-                                <div key={i} className="flex flex-col gap-1">
-                                    <span className="text-xs font-mono text-slate-500 uppercase tracking-wider">
-                                        {turn.role}
-                                    </span>
-                                    <div className={`text-sm leading-relaxed font-urdu rounded-xl px-4 py-3 ${turn.role === 'user'
-                                        ? 'bg-slate-800 text-blue-300 border border-slate-700'
-                                        : 'bg-indigo-950/30 text-emerald-300 border border-indigo-900/30'
-                                        }`}>
-                                        {/* Highlight Redactions */}
-                                        {turn.text.split(/(\[REDACTED_PHONE\]|\[REDACTED_CNIC\])/g).map((part, j) => {
-                                            if (part === '[REDACTED_PHONE]' || part === '[REDACTED_CNIC]') {
-                                                return <span key={j} className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-xs mx-1 border border-red-500/30">{part}</span>
-                                            }
-                                            return <span key={j}>{part}</span>
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-12 text-center text-slate-500">
-                    <Terminal className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                    <p>No call data available.</p>
-                    <p className="text-xs mt-2 opacity-60">Complete a call in the console to generate analytics.</p>
-                </div>
-            )}
+      <div className="space-y-5">
+        <Skeleton className="h-12 w-72" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
         </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
     );
+  }
+
+  const kpiTiles = [
+    {
+      icon: Users,
+      label: "Total calls",
+      value: kpis?.total_calls ?? 0,
+      format: "number" as const,
+    },
+    {
+      icon: ShieldCheck,
+      label: "PII redacted",
+      value: kpis?.pii_redacted_pct ?? 100,
+      format: "number" as const,
+      suffix: "%",
+      accent: true,
+    },
+    {
+      icon: AlertCircle,
+      label: "Qualified leads",
+      value: kpis?.qualified_leads ?? 0,
+      format: "number" as const,
+    },
+    {
+      icon: Clock,
+      label: "Avg duration",
+      raw: kpis?.avg_duration ?? "0s",
+    },
+  ];
+
+  return (
+    <div className="space-y-7">
+      <header className="flex items-center justify-between border-b border-border pb-5">
+        <div>
+          <h1 className="font-serif text-3xl text-foreground tracking-tight flex items-center gap-3">
+            <BarChart3 className="w-7 h-7 text-accent" />
+            Post-call analytics
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review call summaries, KPIs, and PII-redacted safe transcripts.
+          </p>
+        </div>
+      </header>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {kpiTiles.map((tile) => {
+          const Icon = tile.icon;
+          return (
+            <Card key={tile.label}>
+              <CardBody className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Icon
+                    className={cn(
+                      "w-3.5 h-3.5",
+                      tile.accent ? "text-accent" : "text-muted-foreground",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "font-mono text-[10px] uppercase tracking-[0.15em]",
+                      tile.accent ? "text-accent" : "text-muted-foreground",
+                    )}
+                  >
+                    {tile.label}
+                  </span>
+                </div>
+                <div className="font-serif text-4xl text-foreground leading-none">
+                  {"raw" in tile && tile.raw !== undefined ? (
+                    tile.raw
+                  ) : (
+                    <>
+                      <Ticker value={tile.value as number} format={tile.format ?? "number"} />
+                      {(tile as { suffix?: string }).suffix || ""}
+                    </>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Recent call detail */}
+      {callToDisplay ? (
+        <motion.div variants={fadeUp} initial="hidden" animate="visible">
+          <Card>
+            <div className="flex flex-col md:flex-row overflow-hidden">
+              {/* Meta + summary */}
+              <div className="w-full md:w-1/3 p-6 border-r border-border bg-muted/30">
+                <div className="flex justify-between items-start mb-5">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Session ID
+                    </div>
+                    <div className="font-mono text-sm text-foreground mt-1">
+                      {callToDisplay.id}
+                    </div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground mt-2">
+                      {callToDisplay.date}
+                    </div>
+                  </div>
+                  <Badge variant="mint">{callToDisplay.status}</Badge>
+                </div>
+
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                  AI summary
+                </h3>
+                <p className="text-sm text-foreground leading-relaxed mb-6">
+                  {callToDisplay.summary}
+                </p>
+
+                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.1em] text-accent bg-accent/5 p-3 rounded-sm border border-accent/20">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  PII automatically redacted · CNIC, phone
+                </div>
+              </div>
+
+              {/* Transcript */}
+              <div className="flex-1 p-6">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-4 flex items-center gap-2">
+                  <Terminal className="w-3.5 h-3.5" />
+                  Redacted transcript
+                </h3>
+
+                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                  {(callToDisplay.transcript || []).map((turn, i) => (
+                    <div key={i} className="flex flex-col gap-1.5">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                        {turn.role}
+                      </span>
+                      <div
+                        className={cn(
+                          "text-base leading-relaxed font-urdu rounded-md px-4 py-3 border",
+                          turn.role === "user"
+                            ? "bg-muted text-foreground border-border"
+                            : "bg-accent/5 text-foreground border-accent/20",
+                        )}
+                      >
+                        {turn.text.split(/(\[REDACTED_PHONE\]|\[REDACTED_CNIC\])/g).map(
+                          (part, j) => {
+                            if (
+                              part === "[REDACTED_PHONE]" ||
+                              part === "[REDACTED_CNIC]"
+                            ) {
+                              return (
+                                <span
+                                  key={j}
+                                  className="bg-destructive/15 text-destructive font-mono text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-sm border border-destructive/30 mx-1"
+                                >
+                                  {part}
+                                </span>
+                              );
+                            }
+                            return <span key={j}>{part}</span>;
+                          },
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      ) : (
+        <Card>
+          <CardBody className="p-0">
+            <EmptyState
+              icon={<Terminal className="w-10 h-10" />}
+              title="No call data yet"
+              description="Complete a call in the console or voice agent to generate analytics."
+            />
+          </CardBody>
+        </Card>
+      )}
+    </div>
+  );
 }
