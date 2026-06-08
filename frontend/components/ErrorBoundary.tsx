@@ -1,58 +1,54 @@
 "use client";
 
 import React from "react";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
-interface Props {
+interface ErrorBoundaryProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
     console.error("[ErrorBoundary] Caught render error:", error, info.componentStack);
   }
 
-  render() {
+  reset = (): void => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render(): React.ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
-
       return (
-        <div className="min-h-[200px] flex flex-col items-center justify-center gap-4 bg-red-950/20 border border-red-500/20 rounded-xl p-8 text-center">
-          <AlertCircle className="w-10 h-10 text-red-400" />
-          <div>
-            <p className="text-white font-medium mb-1">Something went wrong</p>
-            <p className="text-neutral-400 text-sm">
-              {process.env.NODE_ENV === "development"
-                ? this.state.error?.message ?? "Unknown error"
-                : "An unexpected error occurred. Please try refreshing."}
-            </p>
-          </div>
-          <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-md text-sm hover:bg-red-500/20 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </button>
-        </div>
+        <EmptyState
+          icon={<AlertCircle className="w-10 h-10 text-destructive" />}
+          title="Something went wrong"
+          description={
+            process.env.NODE_ENV === "development"
+              ? this.state.error?.message ?? "Unknown error"
+              : "An unexpected error occurred. Please try refreshing."
+          }
+          action={<Button onClick={this.reset}>Try Again</Button>}
+        />
       );
     }
-
     return this.props.children;
   }
 }
