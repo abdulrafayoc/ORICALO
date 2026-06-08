@@ -27,7 +27,8 @@ describe("ListingsTable", () => {
     it("renders loading state initially", () => {
         (apiFetch as any).mockReturnValue(new Promise(() => {}));
         render(<table><tbody><ListingsTable onEdit={mockOnEdit} /></tbody></table>);
-        expect(screen.getByText("Loading listings...")).toBeInTheDocument();
+        // P3: loading copy is now lowercase mono "loading"
+        expect(screen.getByText("loading")).toBeInTheDocument();
     });
 
     it("renders empty state when no listings", async () => {
@@ -37,7 +38,8 @@ describe("ListingsTable", () => {
         });
         render(<table><tbody><ListingsTable onEdit={mockOnEdit} /></tbody></table>);
         await waitFor(() => {
-            expect(screen.getByText("No listings found in database.")).toBeInTheDocument();
+            // P3: empty copy is now lowercase mono "no listings in database"
+            expect(screen.getByText("no listings in database")).toBeInTheDocument();
         });
     });
 

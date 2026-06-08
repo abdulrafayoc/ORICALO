@@ -2,10 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckSquare, Check, Phone, ArrowUpRight, Calendar, AlertCircle } from "lucide-react";
+import {
+  CheckSquare,
+  Check,
+  Phone,
+  ArrowUpRight,
+  Calendar,
+  AlertCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
+import { Card, CardBody } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { spring, slideIn } from "@/lib/motion";
 
 interface Lead {
   id: number;
@@ -31,12 +44,7 @@ export default function CRMTasks() {
     try {
       const res = await apiFetch("/crm/action_items");
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setTasks(data);
-      } else {
-        console.error("Expected array but got:", data);
-        setTasks([]);
-      }
+      setTasks(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch tasks", err);
       setTasks([]);
@@ -53,14 +61,15 @@ export default function CRMTasks() {
     setCompletingId(taskId);
     try {
       const res = await apiFetch(`/crm/action_items/${taskId}/complete`, {
-        method: "POST"
+        method: "POST",
       });
       if (res.ok) {
-        // Remove task locally with animation
         setTimeout(() => {
-          setTasks(prev => prev.filter(t => t.id !== taskId));
+          setTasks((prev) => prev.filter((t) => t.id !== taskId));
           setCompletingId(null);
-        }, 500);
+        }, 450);
+      } else {
+        setCompletingId(null);
       }
     } catch (err) {
       console.error(err);
@@ -69,108 +78,114 @@ export default function CRMTasks() {
   };
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <CheckSquare className="w-8 h-8 text-neutral-400" />
-            Agent Action Queue
-          </h1>
-          <p className="text-neutral-400 mt-2">Manage follow-ups and human-intervention requests flagged by AI.</p>
-        </div>
+    <div className="space-y-7">
+      <header>
+        <h1 className="font-serif text-3xl text-foreground tracking-tight flex items-center gap-3">
+          <CheckSquare className="w-7 h-7 text-accent" />
+          Agent action queue
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Manage follow-ups and human-intervention requests flagged by the AI.
+        </p>
+      </header>
 
-        {/* Task List */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden min-h-[500px] p-6">
-          {loading ? (
-            <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div>
-          ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center mt-10">
-              <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center mb-4"><Check className="w-8 h-8 text-green-500" /></div>
-              <h3 className="text-lg font-medium text-white mb-2">Inbox Zero</h3>
-              <p className="text-sm text-neutral-500 max-w-sm">There are no pending actions. The AI has handled everything successfully so far.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AnimatePresence>
-                {tasks.map((task) => (
-                  <motion.div 
-                    key={task.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className={cn(
-                      "bg-neutral-950 border p-5 rounded-xl flex flex-col gap-4 relative overflow-hidden transition-all",
-                      completingId === task.id ? "border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.2)]" : "border-neutral-800"
-                    )}
-                  >
-                    {/* Top Bar */}
-                    <div className="flex items-start justify-between">
-                      <div className="px-2.5 py-1 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5">
-                        <AlertCircle className="w-3 h-3" />
-                        {task.task_type.replace('_', ' ')}
-                      </div>
-                      <span className="text-xs text-neutral-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> {new Date(task.created_at).toLocaleDateString()}</span>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 w-full" />
+          ))}
+        </div>
+      ) : tasks.length === 0 ? (
+        <EmptyState
+          icon={<Check className="w-10 h-10 text-accent" />}
+          title="Inbox zero"
+          description="There are no pending actions. The AI has handled everything so far."
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence>
+            {tasks.map((task) => (
+              <motion.div
+                key={task.id}
+                layout
+                variants={slideIn}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={spring.gentle}
+              >
+                <Card
+                  className={cn(
+                    "relative overflow-hidden",
+                    completingId === task.id && "border-accent ring-1 ring-accent/40",
+                  )}
+                >
+                  <CardBody className="p-5 space-y-3.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge variant="warning" className="flex items-center gap-1.5">
+                        <AlertCircle className="w-2.5 h-2.5" />
+                        {task.task_type.replace("_", " ")}
+                      </Badge>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(task.created_at).toLocaleDateString()}
+                      </span>
                     </div>
 
-                    {/* Context / Lead Info */}
-                    <div className="flex flex-col gap-1">
-                      <Link href={`/crm/${task.lead.id}`} className="text-lg font-bold text-white hover:text-blue-400 transition flex items-center gap-1 group">
+                    <div>
+                      <Link
+                        href={`/crm/${task.lead.id}`}
+                        className="font-serif text-lg text-foreground hover:text-accent transition-colors flex items-center gap-1 group"
+                      >
                         {task.lead.name}
                         <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
-                      <div className="text-sm text-neutral-400 flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5" />
-                        {task.lead.phone_number || "No Phone"}
+                      <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground flex items-center gap-1.5 mt-1">
+                        <Phone className="w-3 h-3" />
+                        {task.lead.phone_number || "no phone"}
                       </div>
                     </div>
 
-                    {/* Task Details */}
-                    <div className="flex-1 bg-neutral-900/50 p-3 rounded-md border border-neutral-800 shrink-0">
-                      <p className="text-sm text-neutral-300 leading-snug break-words">
+                    <div className="bg-muted/40 border border-border rounded-sm p-3">
+                      <p className="text-sm text-foreground leading-relaxed">
                         {task.description}
                       </p>
                     </div>
 
-                    {/* Action */}
-                    <button 
+                    <Button
                       onClick={() => handleCompleteTask(task.id)}
                       disabled={completingId === task.id}
-                      className="w-full mt-2 py-2.5 rounded-lg font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-neutral-950 flex items-center justify-center gap-2
-                        bg-neutral-800 text-neutral-300 hover:bg-green-600 hover:text-white"
+                      className="w-full"
+                      variant={completingId === task.id ? "primary" : "outline"}
                     >
                       {completingId === task.id ? (
-                        <>Marking Complete...</>
+                        <>Marking complete…</>
                       ) : (
-                        <><Check className="w-4 h-4" /> Mark as Done</>
+                        <>
+                          <Check className="w-4 h-4" /> Mark as done
+                        </>
                       )}
-                    </button>
-                    
-                    {/* Animated Completion Overlay */}
+                    </Button>
+
                     <AnimatePresence>
                       {completingId === task.id && (
-                        <motion.div 
-                          initial={{ opacity: 0 }} 
-                          animate={{ opacity: 1 }} 
-                          exit={{ opacity: 0 }} 
-                          className="absolute inset-0 bg-green-500/10 backdrop-blur-[2px] z-10 flex items-center justify-center"
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 bg-accent/10 backdrop-blur-[1px] z-10 flex items-center justify-center"
                         >
-                          <Check className="w-12 h-12 text-green-500 drop-shadow-lg" />
+                          <Check className="w-12 h-12 text-accent drop-shadow-lg" />
                         </motion.div>
                       )}
                     </AnimatePresence>
-
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
+                  </CardBody>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
-
-      </div>
+      )}
     </div>
-  )
+  );
 }

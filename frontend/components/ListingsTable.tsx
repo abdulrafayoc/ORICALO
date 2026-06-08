@@ -3,77 +3,110 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+interface Listing {
+  id: number;
+  title: string;
+  location: string;
+  price: string;
+}
+
 interface ListingsTableProps {
-    onEdit: (item: any) => void;
+  onEdit: (item: Listing) => void;
 }
 
 /**
- * Fetches and renders the agency listings table rows.
- * Separated from rag/page.tsx for single-responsibility and reusability.
+ * Fetches and renders agency listing rows.
+ * Returns <tr> fragments — the parent provides the <table> + <thead> + <tbody>.
  */
 export function ListingsTable({ onEdit }: ListingsTableProps) {
-    const [listings, setListings] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    const fetchListings = async () => {
-        try {
-            const res = await apiFetch("/agency/listings");
-            if (res.ok) {
-                const data = await res.json();
-                setListings(data);
-            }
-        } catch (error) {
-            console.error("Failed to fetch listings:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this listing?")) return;
-        try {
-            const res = await apiFetch(`/agency/listings/${id}`, {
-                method: 'DELETE'
-            });
-            if (res.ok) {
-                fetchListings();
-            }
-        } catch (error) {
-            console.error("Failed to delete listing:", error);
-        }
+  const fetchListings = async () => {
+    try {
+      const res = await apiFetch("/agency/listings");
+      if (res.ok) {
+        const data = await res.json();
+        setListings(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch listings:", error);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    useEffect(() => {
-        fetchListings();
-    }, []);
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this listing?")) return;
+    try {
+      const res = await apiFetch(`/agency/listings/${id}`, { method: "DELETE" });
+      if (res.ok) fetchListings();
+    } catch (error) {
+      console.error("Failed to delete listing:", error);
+    }
+  };
 
-    if (loading) return <tr><td colSpan={5} className="px-6 py-8 text-center">Loading listings...</td></tr>;
-    if (listings.length === 0) return <tr><td colSpan={5} className="px-6 py-8 text-center">No listings found in database.</td></tr>;
+  useEffect(() => {
+    fetchListings();
+  }, []);
 
+  if (loading) {
     return (
-        <>
-            {listings.map((item) => (
-                <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs">{item.id}</td>
-                    <td className="px-6 py-4 text-white font-medium">{item.title}</td>
-                    <td className="px-6 py-4">{item.location}</td>
-                    <td className="px-6 py-4 font-mono text-emerald-500">{item.price}</td>
-                    <td className="px-6 py-4 text-right flex justify-end gap-2">
-                        <button
-                            onClick={() => onEdit(item)}
-                            className="text-blue-400 hover:text-blue-300 text-xs font-medium hover:underline"
-                        >
-                            Edit
-                        </button>
-                        <button
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-400 hover:text-red-300 text-xs font-medium hover:underline"
-                        >
-                            Delete
-                        </button>
-                    </td>
-                </tr>
-            ))}
-        </>
+      <tr>
+        <td
+          colSpan={5}
+          className="px-4 py-8 text-center font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground"
+        >
+          loading
+        </td>
+      </tr>
     );
+  }
+  if (listings.length === 0) {
+    return (
+      <tr>
+        <td
+          colSpan={5}
+          className="px-4 py-8 text-center font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground"
+        >
+          no listings in database
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <>
+      {listings.map((item) => (
+        <tr
+          key={item.id}
+          className="border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors"
+        >
+          <td className="px-3 py-2.5 font-mono text-[11px] text-muted-foreground">
+            {item.id}
+          </td>
+          <td className="px-3 py-2.5 text-foreground">{item.title}</td>
+          <td className="px-3 py-2.5 text-muted-foreground">{item.location}</td>
+          <td className="px-3 py-2.5 font-serif text-accent">{item.price}</td>
+          <td className="px-3 py-2.5 text-right">
+            <div className="inline-flex gap-2">
+              <button
+                onClick={() => onEdit(item)}
+                className="font-mono text-[10px] uppercase tracking-[0.12em] text-foreground hover:text-accent transition-colors"
+              >
+                Edit
+              </button>
+              <span className="font-mono text-[10px] text-muted-foreground">·</span>
+              <button
+                onClick={() => handleDelete(item.id)}
+                className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground hover:text-destructive transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
 }
