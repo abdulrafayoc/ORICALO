@@ -11,7 +11,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, leftIcon, rightHint, mono, ...props }, ref) => (
     <div className="relative flex items-center w-full">
       {leftIcon && (
-        <span className="absolute left-3 text-muted-foreground pointer-events-none">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/60 pointer-events-none flex items-center">
           {leftIcon}
         </span>
       )}
@@ -29,7 +29,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {...props}
       />
       {rightHint && (
-        <span className="absolute right-3 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground pointer-events-none">
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[10px] uppercase tracking-[0.08em] text-foreground/55 pointer-events-none">
           {rightHint}
         </span>
       )}
