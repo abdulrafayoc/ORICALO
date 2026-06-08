@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface Lead {
   id?: number;
@@ -22,9 +31,12 @@ interface LeadModalProps {
   onSave: () => void;
 }
 
+const FIELD_LABEL =
+  "block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground mb-2";
+
 export function LeadModal({ lead, onClose, onSave }: LeadModalProps) {
   const isEdit = !!lead;
-  
+
   const [formData, setFormData] = useState({
     name: lead?.name || "",
     phone_number: lead?.phone_number || "",
@@ -36,31 +48,29 @@ export function LeadModal({ lead, onClose, onSave }: LeadModalProps) {
     timeline: lead?.timeline || "",
     lead_score: lead?.lead_score || 0,
   });
-  
+
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    
-    // Convert necessary types
+
     const payload = {
-        ...formData,
-        phone_number: formData.phone_number || null,
-        email: formData.email || null,
-        budget: formData.budget || null,
-        location_pref: formData.location_pref || null,
-        timeline: formData.timeline || null,
+      ...formData,
+      phone_number: formData.phone_number || null,
+      email: formData.email || null,
+      budget: formData.budget || null,
+      location_pref: formData.location_pref || null,
+      timeline: formData.timeline || null,
     };
 
-    const path = isEdit ? `http://127.0.0.1:8000/crm/leads/${lead.id}` : `http://127.0.0.1:8000/crm/leads`;
+    const path = isEdit ? `/crm/leads/${lead!.id}` : `/crm/leads`;
     const method = isEdit ? "PUT" : "POST";
 
     try {
-      const res = await fetch(path, {
+      const res = await apiFetch(path, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         onSave();
@@ -68,46 +78,62 @@ export function LeadModal({ lead, onClose, onSave }: LeadModalProps) {
         const error = await res.json();
         alert(`Failed to save: ${error.detail || "Unknown error"}`);
       }
-    } catch (err: any) {
-      alert("Error saving lead: " + err.message);
+    } catch (err: unknown) {
+      alert("Error saving lead: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex justify-between items-center p-6 border-b border-neutral-800">
-          <h3 className="text-xl font-bold text-white">{isEdit ? "Edit Prospect" : "New Prospect"}</h3>
-          <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit prospect" : "New prospect"}</DialogTitle>
+          <DialogDescription>
+            {isEdit
+              ? "Update the lead's qualification details."
+              : "Capture a new prospect manually."}
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="grid grid-cols-2 gap-5">
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Name</label>
-              <input 
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="name" className={FIELD_LABEL}>
+                Name
+              </label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
               />
             </div>
 
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Phone Number</label>
-              <input 
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.phone_number} onChange={e => setFormData({ ...formData, phone_number: e.target.value })} placeholder="+923001234567"
+            <div>
+              <label htmlFor="phone" className={FIELD_LABEL}>
+                Phone
+              </label>
+              <Input
+                id="phone"
+                value={formData.phone_number}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone_number: e.target.value })
+                }
+                placeholder="+92 300 1234567"
               />
             </div>
-            
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Status</label>
-              <select 
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
+
+            <div>
+              <label htmlFor="status" className={FIELD_LABEL}>
+                Status
+              </label>
+              <select
+                id="status"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="h-9 w-full bg-input border border-border rounded-md px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-ring transition-colors"
               >
                 <option value="NEW">New</option>
                 <option value="COLD">Cold</option>
@@ -117,72 +143,103 @@ export function LeadModal({ lead, onClose, onSave }: LeadModalProps) {
               </select>
             </div>
 
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Email Address</label>
-              <input 
-                type="email"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="contact@example.com"
-              />
-            </div>
-
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Budget</label>
-              <input 
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.budget} onChange={e => setFormData({ ...formData, budget: e.target.value })} placeholder="e.g. 5 Crore"
-              />
-            </div>
-            
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Location Preference</label>
-              <input 
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.location_pref} onChange={e => setFormData({ ...formData, location_pref: e.target.value })} placeholder="e.g. DHA Phase 5"
-              />
-            </div>
-            
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Lead Score (0-100)</label>
-              <input 
-                type="number" min="0" max="100"
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.lead_score} onChange={e => setFormData({ ...formData, lead_score: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            
-            <div className="col-span-1">
-              <label className="block text-xs uppercase font-medium text-neutral-500 mb-1.5">Timeline</label>
-              <input 
-                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-2.5 text-white focus:border-blue-500 outline-none transition-colors"
-                value={formData.timeline} onChange={e => setFormData({ ...formData, timeline: e.target.value })} placeholder="e.g. Immediate"
-              />
-            </div>
-
-            <div className="col-span-2 mt-2">
-              <label className="flex items-center gap-3 p-3 border border-neutral-800 bg-neutral-950/50 rounded-lg cursor-pointer hover:bg-neutral-800/50 transition-colors">
-                <input 
-                  type="checkbox" 
-                  checked={formData.needs_human} 
-                  onChange={e => setFormData({...formData, needs_human: e.target.checked})}
-                  className="w-5 h-5 accent-orange-500 rounded border-neutral-700 bg-neutral-900"
-                />
-                <div>
-                  <div className="font-medium text-white text-sm">Requires Human Intervention</div>
-                  <div className="text-xs text-neutral-500">Flag this lead to appear urgently on the Agent Action Queue</div>
-                </div>
+            <div>
+              <label htmlFor="email" className={FIELD_LABEL}>
+                Email
               </label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="contact@example.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="budget" className={FIELD_LABEL}>
+                Budget
+              </label>
+              <Input
+                id="budget"
+                value={formData.budget}
+                onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                placeholder="e.g. 5 crore"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="location" className={FIELD_LABEL}>
+                Location
+              </label>
+              <Input
+                id="location"
+                value={formData.location_pref}
+                onChange={(e) =>
+                  setFormData({ ...formData, location_pref: e.target.value })
+                }
+                placeholder="e.g. DHA Phase 5"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="score" className={FIELD_LABEL}>
+                Lead score (0–100)
+              </label>
+              <Input
+                id="score"
+                type="number"
+                min={0}
+                max={100}
+                value={formData.lead_score}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    lead_score: parseInt(e.target.value) || 0,
+                  })
+                }
+                mono
+              />
+            </div>
+
+            <div>
+              <label htmlFor="timeline" className={FIELD_LABEL}>
+                Timeline
+              </label>
+              <Input
+                id="timeline"
+                value={formData.timeline}
+                onChange={(e) => setFormData({ ...formData, timeline: e.target.value })}
+                placeholder="e.g. immediate"
+              />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t border-neutral-800">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-medium text-neutral-400 hover:text-white transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-lg disabled:opacity-50">
-              {saving ? "Saving..." : isEdit ? "Update Prospect" : "Create Prospect"}
-            </button>
+          <label className="flex items-start gap-3 p-3 border border-border bg-muted/40 rounded-md cursor-pointer hover:bg-muted transition-colors">
+            <input
+              type="checkbox"
+              checked={formData.needs_human}
+              onChange={(e) => setFormData({ ...formData, needs_human: e.target.checked })}
+              className="mt-0.5 w-4 h-4 rounded-sm border-border bg-input text-accent focus:ring-1 focus:ring-ring"
+            />
+            <div>
+              <div className="text-sm text-foreground">Requires human intervention</div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground mt-1">
+                Flag for the agent action queue
+              </div>
+            </div>
+          </label>
+
+          <div className="flex justify-end gap-2 pt-5 border-t border-border">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Update prospect" : "Create prospect"}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
