@@ -106,11 +106,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="mt-8 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-4">
-        <p className="text-xs text-center text-emerald-500/70 font-medium">
-          Demo: <span className="text-emerald-500">demo@oricalo.com</span> / <span className="text-emerald-500">demo1234</span>
-        </p>
-      </div>
     </div>
   );
 }
